@@ -1,0 +1,15 @@
+name: betaseries_simulation
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - ipykernel=5.1.0
+  - matplotlib=3.0.3
+  - numpy=1.14.5
+  - pip=19.0.3
+  - python=3.6.8
+  - statsmodels=0.9.0
+  - pip:
+    - git+https://github.com/Neuroimaging-UvA/neurodesign.git@c79e248da94b0a5558a79a000a23f5ee7691f1cb#egg=neurodesign
+    - nibetaseries==0.2.3
+
