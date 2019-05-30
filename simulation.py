@@ -224,6 +224,7 @@ class BetaSeriesSimulation:
         with Pool(processes=self.n_proc) as pool:
             sim_res = pool.map(self._run_sim, range(self.n_simulations))
 
+        # https://stackoverflow.com/questions/45649141/combine-values-of-same-keys-in-a-list-of-dicts
         sim_res_dict = {
             k: [d.get(k) for d in sim_res]
             for k in set().union(*sim_res)}
@@ -567,7 +568,7 @@ if __name__ == "__main__":
     random.seed(123)
     noise_dict = {"low": 0.001, "med": 0.01, "high": 0.1}
     iti_list = [2, 4, 6, 8, 10]
-    trial_list = [30, 40, 50, 60]
+    trial_list = [30, 60, 90, 120]
     n_proc = 32
     path = "/Users/jdkent/Projects/betaSeriesSimulations/data"
     template = "iti-{iti_mean}_ntrials-{n_trials}_noise-{noise}_simulation.tsv"
