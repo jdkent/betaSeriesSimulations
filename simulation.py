@@ -576,7 +576,7 @@ if __name__ == "__main__":
     for iti_mean in iti_list:
         for n_trials in trial_list:
             sim = BetaSeriesSimulation(iti_mean=iti_mean, n_trials=n_trials,
-                                       n_proc=n_proc, n_simulations=10)
+                                       n_proc=n_proc, n_simulations=500)
             sim.make_design()
 
             for noise_label, noise in noise_dict.items():
