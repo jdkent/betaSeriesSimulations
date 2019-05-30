@@ -417,7 +417,6 @@ class BetaSeriesSimulation:
         bold_data = np.array([[Y.T]])
         bold_img = nib.Nifti1Image(bold_data, np.eye(4))
         bold_img.to_filename(bold_file)
-        sleep(1)
         return bold_file
 
     def _make_mask_nifti(self):
@@ -433,7 +432,6 @@ class BetaSeriesSimulation:
         mask_data = np.array([[[1, 1]]], dtype=np.int16)
         mask_img = nib.Nifti1Image(mask_data, np.eye(4))
         mask_img.to_filename(mask_file)
-        sleep(1)
         return mask_file
 
     def _run_betaseries(self, bold_file, bold_metadata, events_file, mask_file):
@@ -468,8 +466,16 @@ class BetaSeriesSimulation:
                                  mask_file=mask_file,
                                  selected_confounds=None,
                                  smoothing_kernel=None)
+        idx = 0
+        rty = 5
+        while idx < rty:
+            try:
+                result = beta_series.run(cwd=self.tmp_dir)
+            except nib.filebasedimages.ImageFileError:
+                idx += 1
 
-        result = beta_series.run(cwd=self.tmp_dir)
+        if idx == rty:
+            raise nib.filebasedimages.ImageFileError("file could not be opened")
 
         for bmap in result.outputs.beta_maps:
             if 'elijah_wood' in bmap:
