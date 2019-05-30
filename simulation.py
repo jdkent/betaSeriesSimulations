@@ -237,6 +237,8 @@ class BetaSeriesSimulation:
         # set randomization (otherwise processes spawned at the same time have the same result)
         np.random.seed(num)
         random.seed(num)
+        # each iteration gets its own temporary directory
+        self.tmp_dir = tempfile.mkdtemp(prefix='simulation_')
         # number of simulation
         simulation_results_dict = {'num': num}
         # simulate data
