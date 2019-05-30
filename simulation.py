@@ -228,7 +228,8 @@ class BetaSeriesSimulation:
             k: [d.get(k) for d in sim_res]
             for k in set().union(*sim_res)}
         # make an analyzable dataframe from the simulated results
-        self.simulation_results = pd.DataFrame.from_dict(sim_res_dict)
+        col_order = ["num", "corr_ew", "true_corr_ew", "corr_dr", "true_corr_dr", "snr"]
+        self.simulation_results = pd.DataFrame.from_dict(sim_res_dict)[col_order]
 
     def _run_sim(self, num):
         cond_order = self.Designer.bestdesign.order
@@ -567,7 +568,8 @@ if __name__ == "__main__":
     noise_dict = {"low": 0.001, "med": 0.01, "high": 0.1}
     iti_list = [2, 4, 6, 8, 10]
     trial_list = [30, 40, 50, 60]
-    n_proc = 2
+    n_proc = 32
+    path = "/Users/jdkent/Projects/betaSeriesSimulations/data"
     template = "iti-{iti_mean}_ntrials-{n_trials}_noise-{noise}_simulation.tsv"
 
     for iti_mean in iti_list:
@@ -582,4 +584,5 @@ if __name__ == "__main__":
                 out_file = template.format(iti_mean=str(iti_mean),
                                            n_trials=str(n_trials),
                                            noise=noise)
-                sim.simulation_results.to_csv(out_file, sep='\t', index=False)
+                out_path = os.path.join(path, out_file)
+                sim.simulation_results.to_csv(out_path, sep='\t', index=False)
