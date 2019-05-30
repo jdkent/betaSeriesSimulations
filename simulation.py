@@ -417,7 +417,7 @@ class BetaSeriesSimulation:
         bold_data = np.array([[Y.T]])
         bold_img = nib.Nifti1Image(bold_data, np.eye(4))
         bold_img.to_filename(bold_file)
-
+        sleep(1)
         return bold_file
 
     def _make_mask_nifti(self):
@@ -433,7 +433,7 @@ class BetaSeriesSimulation:
         mask_data = np.array([[[1, 1]]], dtype=np.int16)
         mask_img = nib.Nifti1Image(mask_data, np.eye(4))
         mask_img.to_filename(mask_file)
-
+        sleep(1)
         return mask_file
 
     def _run_betaseries(self, bold_file, bold_metadata, events_file, mask_file):
