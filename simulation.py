@@ -504,7 +504,7 @@ if __name__ == "__main__":
             for noise_label, noise in noise_dict.items():
                 sim.sd_err = noise
                 sim.run_simulations()
-                out_file = template.format(iti_mean=iti_mean,
-                                           n_trials=n_trials,
+                out_file = template.format(iti_mean=str(iti_mean),
+                                           n_trials=str(n_trials),
                                            noise=noise)
                 sim.simulation_results.to_csv(out_file, sep='\t', index=False)
