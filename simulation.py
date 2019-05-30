@@ -21,6 +21,44 @@ from collections import namedtuple, Counter
 import tempfile
 import os
 import random
+import copyreg
+import types
+
+
+def _pickle_method(method):
+    """
+    Author: Steven Bethard
+    http://bytes.com/topic/python/answers/552476-why-cant-you-pickle-instancemethods
+    """
+    func_name = method.im_func.__name__
+    obj = method.im_self
+    cls = method.im_class
+    cls_name = ''
+    if func_name.startswith('__') and not func_name.endswith('__'):
+        cls_name = cls.__name__.lstrip('_')
+    if cls_name:
+        func_name = '_' + cls_name + func_name
+    return _unpickle_method, (func_name, obj, cls)
+
+
+def _unpickle_method(func_name, obj, cls):
+    """
+    Author: Steven Bethard
+    http://bytes.com/topic/python/answers/552476-why-cant-you-pickle-instancemethods
+    """
+    for cls in cls.mro():
+        try:
+            func = cls.__dict__[func_name]
+        except KeyError:
+            pass
+        else:
+            break
+    return func.__get__(obj, cls)
+
+# This call to copy_reg.pickle allows you to pass methods as the first arg to
+# mp.Pool methods. If you comment out this line, `pool.map(self.foo, ...)` results in
+# PicklingError: Can't pickle <type 'instancemethod'>: attribute lookup
+# __builtin__.instancemethod failed
 
 
 class BetaSeriesSimulation:
@@ -417,6 +455,19 @@ class BetaSeriesSimulation:
         bold_data = np.array([[Y.T]])
         bold_img = nib.Nifti1Image(bold_data, np.eye(4))
         bold_img.to_filename(bold_file)
+
+        idx = 0
+        rty = 5
+        while idx < 5:
+            res = bold_img.path_maybe_image(bold_file, sniff_max=4096)
+            if not res:
+                idx += 1
+            else:
+                break
+
+        if idx == 5:
+            raise FileNotFoundError
+
         return bold_file
 
     def _make_mask_nifti(self):
@@ -432,6 +483,18 @@ class BetaSeriesSimulation:
         mask_data = np.array([[[1, 1]]], dtype=np.int16)
         mask_img = nib.Nifti1Image(mask_data, np.eye(4))
         mask_img.to_filename(mask_file)
+
+        idx = 0
+        rty = 5
+        while idx < 5:
+            res = mask_img.path_maybe_image(mask_file, sniff_max=4096)
+            if not res:
+                idx += 1
+            else:
+                break
+
+        if idx == 5:
+            raise FileNotFoundError
         return mask_file
 
     def _run_betaseries(self, bold_file, bold_metadata, events_file, mask_file):
@@ -466,16 +529,17 @@ class BetaSeriesSimulation:
                                  mask_file=mask_file,
                                  selected_confounds=None,
                                  smoothing_kernel=None)
-        idx = 0
-        rty = 5
-        while idx < rty:
-            try:
-                result = beta_series.run(cwd=self.tmp_dir)
-            except nib.filebasedimages.ImageFileError:
-                idx += 1
+        # idx = 0
+        # rty = 5
+        # while idx < rty:
+        #    try:
+        result = beta_series.run(cwd=self.tmp_dir)
+        #        break
+        #    except nib.filebasedimages.ImageFileError:
+        #        idx += 1
 
-        if idx == rty:
-            raise nib.filebasedimages.ImageFileError("file could not be opened")
+        # if idx == rty:
+        #    raise nib.filebasedimages.ImageFileError("file could not be opened")
 
         for bmap in result.outputs.beta_maps:
             if 'elijah_wood' in bmap:
@@ -493,12 +557,15 @@ class BetaSeriesSimulation:
 
 
 if __name__ == "__main__":
+    # allow object methods to be pickled
+    copyreg.pickle(types.MethodType, _pickle_method, _unpickle_method)
+
     np.random.seed(123)
     random.seed(123)
     noise_dict = {"low": 0.001, "med": 0.01, "high": 0.1}
     iti_list = [2, 4, 6, 8, 10]
     trial_list = [30, 40, 50, 60]
-    n_proc = 32
+    n_proc = 2
     template = "iti-{iti_mean}_ntrials-{n_trials}_noise-{noise}_simulation.tsv"
 
     for iti_mean in iti_list:
