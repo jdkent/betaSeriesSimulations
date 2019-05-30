@@ -486,7 +486,7 @@ class BetaSeriesSimulation:
         return ModeledCorrs(corr_ew=corr_ew, corr_dr=corr_dr, beta_res=result)
 
 
-if __name__ == "__main__"():
+if __name__ == "__main__":
     np.random.seed(123)
     random.seed(123)
     noise_dict = {"low": 0.001, "med": 0.01, "high": 0.1}
