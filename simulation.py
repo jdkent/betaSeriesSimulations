@@ -1,4 +1,4 @@
-import matplotlib.pyplot as plt
+#!/usr/bin/env python
 # the hrf model to be used for data constructions
 from nistats.hemodynamic_models import spm_hrf
 # compute betaseries correlations
@@ -6,7 +6,7 @@ from nibetaseries.interfaces.nistats import BetaSeries
 # make AR(1) correlated error terms
 from statsmodels.tsa.arima_process import ArmaProcess
 # generate optimal experimental designs
-from neurodesign import optimisation,experiment
+from neurodesign import optimisation, experiment
 # make correlated betas
 from scipy.linalg import cholesky
 # numerical operations
@@ -24,7 +24,6 @@ import random
 
 
 class BetaSeriesSimulation:
-
 
     def __init__(self, tr=2, n_trials=80, n_trialtypes=2,
                  iti_min=2, iti_mean=4, iti_max=20,
@@ -51,7 +50,7 @@ class BetaSeriesSimulation:
         iti_max : float
             maximum intertrial interval
         iti_model : str
-            distribution to sample iti's from 
+            distribution to sample iti's from
             (choices: “fixed”,”uniform”,”exponential”)
         stim_duration : float
             how long each stimulus is presented
@@ -88,7 +87,7 @@ class BetaSeriesSimulation:
         iti_max : float
             maximum intertrial interval
         iti_model : str
-            distribution to sample iti's from 
+            distribution to sample iti's from
             (choices: “fixed”,”uniform”,”exponential”)
         stim_duration : float
             how long each stimulus is presented
@@ -105,7 +104,7 @@ class BetaSeriesSimulation:
         Designer : neurodesign.optimisation
             optimized experimental design object
         simulation_results : pandas.DataFrame
-            the collection of the true correlations and the 
+            the collection of the true correlations and the
             estimated correlations from betaseries correlations.
         wcorr_ew : float
             beta network correlation for seeing elijah wood
@@ -115,7 +114,7 @@ class BetaSeriesSimulation:
             the correlation between the elijah wood and daniel radcliff networks
         """
 
-                self.tr = tr
+        self.tr = tr
         self.n_trials = n_trials
         self.n_trialtypes = n_trialtypes
         self.iti_min = iti_min
@@ -133,20 +132,19 @@ class BetaSeriesSimulation:
         self.wcorr_dr = wcorr_dr
         self.bcorr = bcorr
         self.n_proc = n_proc
-        
+
         # set by _make_design
         self.Designer = None
 
         # set by run_simulations
         self.simulation_results = None
 
-        
     def make_design(self):
         """generates an optimized experimental design
         """
         # stimulus probability (each stimulus is equally likely to occur)
         stim_prob = [1 / self.n_trialtypes] * self.n_trialtypes
-        
+
         # setup experimental parameters
         Experiment = experiment(
             TR=self.tr,
@@ -178,9 +176,8 @@ class BetaSeriesSimulation:
             trial_count = list(Counter(Designer.bestdesign.order).values())
             # try again if conditions do have equal trials
             optimise = not all(x == trial_count[0] for x in trial_count)
-        
+
         self.Designer = Designer
-    
 
     def run_simulations(self):
         """simulates data and performs correlations
@@ -188,7 +185,7 @@ class BetaSeriesSimulation:
 
         with Pool(processes=self.n_proc) as pool:
             sim_res = pool.map(self._run_sim, range(self.n_simulations))
-        
+
         sim_res_dict = {
             k: [d.get(k) for d in sim_res]
             for k in set().union(*sim_res)}
@@ -218,29 +215,28 @@ class BetaSeriesSimulation:
         bold_metadata = {"RepetitionTime": self.tr, "TaskName": "whodis"}
 
         beta_results = self._run_betaseries(bold_file, bold_metadata, events_file, mask_file)
-        simulation_results_dict['corr_ew'] = beta_results.corr_ew 
+        simulation_results_dict['corr_ew'] = beta_results.corr_ew
         simulation_results_dict['corr_dr'] = beta_results.corr_dr
-        
-        return simulation_results_dict
 
+        return simulation_results_dict
 
     def _generate_betas(self):
         """
         makes the simulated beta values
-        
+
         Returns
         -------
-        
+
         betas : numpy.array
             numpy array size (n_trials / n_trialtypes) x (n_trials * n_voxels)
             to give each trialtype their unique betas per voxel
-        
+
         true_corr_ew : float
             the correlation between the two elijah wood voxels
-        
+
         true_corr_dr : float
             the correlation between the two daniel radcliffe voxels
-            
+
         """
         # https://quantcorner.wordpress.com/2018/02/09/generation-of-correlated-random-numbers-using-python/
         # mean of the betas pulled from Mumford (2012) (hard coded!)
@@ -285,13 +281,12 @@ class BetaSeriesSimulation:
 
         return SimulatedBetas(betas=betas, true_corr_ew=true_corr_ew, true_corr_dr=true_corr_dr)
 
-    
     def _simulate_data(self, betas, cond_order, onsets, duration):
         """simulates the data for the voxels
-        
+
         Parameters
         ----------
-        
+
         betas : numpy.array
             numpy array size (n_trials / n_trialtypes) x (n_trials * n_voxels)
             to give each trialtype their unique betas per voxel
@@ -302,10 +297,10 @@ class BetaSeriesSimulation:
             identifies each onset (in seconds) for a trial to occur
         duration : float
             the total length (in seconds) of the experiment
-        
+
         Returns
         -------
-        
+
         Y : numpy.array
             the simulated data with the size n_volumes x n_voxels
         snr : float
@@ -330,7 +325,8 @@ class BetaSeriesSimulation:
         for idx, (cond, onset) in enumerate(zip(cond_order, onsets)):
             # set the design matrix
             X[onset:onset+stim_duration_msec, idx] = 1
-            X[:, idx] = np.convolve(X[:, idx], spm_hrf(self.tr, oversampling=sampling_rate))[0:X.shape[0]]
+            X[:, idx] = np.convolve(X[:, idx], spm_hrf(self.tr,
+                                                       oversampling=sampling_rate))[0:X.shape[0]]
             # set the beta for the trial depending on condition
             if cond == 0:
                 B[idx, :] = betas[cond_ew, 0:2]
@@ -344,7 +340,7 @@ class BetaSeriesSimulation:
 
         # make the noise component
         n_trs = int(duration / self.tr)
-        ar = np.array([1, -self.rho]) # statmodels says to invert rho
+        ar = np.array([1, -self.rho])  # statmodels says to invert rho
         ap = ArmaProcess(ar)
         n_voxels = 2
         err = ap.generate_sample((n_trs, n_voxels), scale=self.sd_err, axis=0)
@@ -362,13 +358,12 @@ class BetaSeriesSimulation:
 
         return SimulatedData(Y=Y, snr=snr)
 
-
     def _make_events_tsv(self, cond_order, onsets, duration):
         """creates events.tsv file
-        
+
         Parameters
         ----------
-        
+
         cond_order : list
             each entry is an integer representing the trialtype for that
             particular trial
@@ -376,16 +371,16 @@ class BetaSeriesSimulation:
             identifies each onset (in seconds) for a trial to occur
         stim_duration : float
             the stimulus duration
-            
+
         Returns
         -------
-        
+
         events_file : str
             pathname to the events file
         """
         events_file = os.path.join(self.tmp_dir, 'events.tsv')
-        collector = {'onset': [], 
-                     'duration': [], 
+        collector = {'onset': [],
+                     'duration': [],
                      'correct': [],
                      'trial_type': []}
         for cond, onset in zip(cond_order, onsets):
@@ -400,22 +395,21 @@ class BetaSeriesSimulation:
 
         events_df = pd.DataFrame.from_dict(collector)
         events_df.to_csv(events_file, sep='\t', index=False)
-        
-        return events_file
 
+        return events_file
 
     def _make_bold_nifti(self, Y):
         """creates bold file
-        
+
         Paramters
         ---------
-        
+
         Y : numpy.array
             the simulated data with the size n_volumes x n_voxels
-            
+
         Returns
         -------
-        
+
         bold_file : str
             pathname to the bold file
         """
@@ -425,14 +419,13 @@ class BetaSeriesSimulation:
         bold_img.to_filename(bold_file)
 
         return bold_file
-    
 
     def _make_mask_nifti(self):
         """creates mask file (assumes 2 voxels)
-            
+
         Returns
         -------
-        
+
         mask_file : str
             pathname to the mask file
         """
@@ -443,13 +436,12 @@ class BetaSeriesSimulation:
 
         return mask_file
 
-
     def _run_betaseries(self, bold_file, bold_metadata, events_file, mask_file):
         """runs betaseries correlations
-        
+
         Parameters
         ----------
-        
+
         bold_file : str
             pathname to a bold file
         bold_metadata : dict
@@ -458,10 +450,10 @@ class BetaSeriesSimulation:
             pathname to an events file
         mask_file : str
             pathname to a mask file
-            
+
         Returns
         -------
-        
+
         corr_ew : float
             estimated betaseries correlation for elijah wood
         corr_dr : float
@@ -504,17 +496,15 @@ if __name__ == "__main__"():
     template = "iti-{iti_mean}_ntrials-{n_trials}_noise-{noise}_simulation.tsv"
 
     for iti_mean in iti_list:
-            for n_trials in trial_list:
-                sim = BetaSeriesSimulation(iti_mean=iti_mean, n_trials=n_trials,
-                                           n_proc=n_proc, n_simulations=10)
-                sim.make_design()
+        for n_trials in trial_list:
+            sim = BetaSeriesSimulation(iti_mean=iti_mean, n_trials=n_trials,
+                                       n_proc=n_proc, n_simulations=10)
+            sim.make_design()
 
-                for noise_label, noise in noise_dict.items():
-                    sim.sd_err = noise
-                    sim.run_simulations()
-                    out_file = template.format(iti_mean=iti_mean,
-                                               n_trials=n_trials,
-                                               noise=noise)
-                    sim.simulation_results.to_csv(out_file, sep='\t', index=False)
-
-        
+            for noise_label, noise in noise_dict.items():
+                sim.sd_err = noise
+                sim.run_simulations()
+                out_file = template.format(iti_mean=iti_mean,
+                                           n_trials=n_trials,
+                                           noise=noise)
+                sim.simulation_results.to_csv(out_file, sep='\t', index=False)
