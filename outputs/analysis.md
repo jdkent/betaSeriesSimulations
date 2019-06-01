@@ -13,8 +13,24 @@ import os
 from glob import glob
 ```
 
+# Analysis of Simulations
+Simulations were run on a cluster using `simulation.py` with the output in the `data` directory.
+I varied inter trial interval (average time between trials), the number of trials per condition (there are only two conditions), and the noise level.
+One condition has a pre-set betaseries correlation at 0.0, while the other condition has a set correlation at 0.8, thus, a relatively large difference.
+
+This notebook currently observes:
+1. do the results output by nibetaseries correlation with the simulated ground truth?
+  - how does this vary by iti/number of trials/noise level?
+2. is there a significant contrast between the two conditions (weak and strong beta correlations)?
+  - how does this vary by iti/number of trials/noise level?
+3. what do the mean and spread of results output by nibetaseries look like relative to the simulated ground truth?
+  - how does this vary by iti/number of trials/noise level?
+
+## Data Preparation
+
 
 ```python
+# aggregate all the data files in the data directory
 data_dir = '../data/'
 data_files = glob(os.path.join(data_dir, "iti-*_ntrials-*_noise-*_simulation.tsv"))
 data_regex = re.compile(r".*?iti-(?P<iti>[0-9]+)_ntrials-(?P<ntrials>[0-9]+)_noise-(?P<noise>0.[0-9]+)_simulation.tsv")
@@ -41,24 +57,31 @@ for dfile in data_files:
 
 
 ```python
+
 df_wide = pd.concat(df_collector, axis=0, ignore_index=True)
 df_wide["id"] = df_wide.index
-col_names = {"corr_ew": "corr_obs-low",
-             "corr_dr": "corr_obs-high",
-             "true_corr_dr": "corr_truth-high",
-             "true_corr_ew": "corr_truth-low"}
+col_names = {"corr_ew": "corr_obs-weak",
+             "corr_dr": "corr_obs-strong",
+             "true_corr_dr": "corr_truth-strong",
+             "true_corr_ew": "corr_truth-weak",
+             "ntrials": "ntrials_tot"}
 df_wide.rename(col_names, axis=1, inplace=True)
 
+# show trials per condition (instead of total)
+df_wide['ntrials_tot'] = df_wide.ntrials_tot.astype(int)
+df_wide['ntrials'] = df_wide['ntrials_tot'] // 2
+
 # effect size for observed 0.8 - 0.0
-df_wide['corr_obs-delta'] = df_wide['corr_obs-high'] - df_wide['corr_obs-low']
+df_wide['corr_obs-delta'] = df_wide['corr_obs-strong'] - df_wide['corr_obs-weak']
+
 # effect size for ground truth 0.8 - 0.0
-df_wide['corr_truth-delta'] = df_wide['corr_truth-high'] - df_wide['corr_truth-low']
+df_wide['corr_truth-delta'] = df_wide['corr_truth-strong'] - df_wide['corr_truth-weak']
 
 # discrepency between truth and observed for low
-df_wide['corr_disc-low'] = df_wide['corr_truth-low'] - df_wide['corr_obs-low']
+df_wide['corr_disc-weak'] = df_wide['corr_truth-weak'] - df_wide['corr_obs-weak']
 
 # discrepency between truth and observed for high
-df_wide['corr_disc-high'] = df_wide['corr_truth-high'] - df_wide['corr_obs-high']
+df_wide['corr_disc-strong'] = df_wide['corr_truth-strong'] - df_wide['corr_obs-strong']
 df_wide.head()
 ```
 
@@ -84,19 +107,20 @@ df_wide.head()
     <tr style="text-align: right;">
       <th></th>
       <th>num</th>
-      <th>corr_obs-low</th>
-      <th>corr_truth-low</th>
-      <th>corr_obs-high</th>
-      <th>corr_truth-high</th>
+      <th>corr_obs-weak</th>
+      <th>corr_truth-weak</th>
+      <th>corr_obs-strong</th>
+      <th>corr_truth-strong</th>
       <th>snr</th>
       <th>iti</th>
-      <th>ntrials</th>
+      <th>ntrials_tot</th>
       <th>noise</th>
       <th>id</th>
+      <th>ntrials</th>
       <th>corr_obs-delta</th>
       <th>corr_truth-delta</th>
-      <th>corr_disc-low</th>
-      <th>corr_disc-high</th>
+      <th>corr_disc-weak</th>
+      <th>corr_disc-strong</th>
     </tr>
   </thead>
   <tbody>
@@ -109,9 +133,10 @@ df_wide.head()
       <td>0.735546</td>
       <td>1.428565</td>
       <td>10.0</td>
-      <td>90.0</td>
+      <td>90</td>
       <td>0.1</td>
       <td>0</td>
+      <td>45</td>
       <td>0.093295</td>
       <td>0.779916</td>
       <td>-0.012704</td>
@@ -126,9 +151,10 @@ df_wide.head()
       <td>0.725196</td>
       <td>1.369580</td>
       <td>10.0</td>
-      <td>90.0</td>
+      <td>90</td>
       <td>0.1</td>
       <td>1</td>
+      <td>45</td>
       <td>-0.226377</td>
       <td>1.107610</td>
       <td>-0.549650</td>
@@ -143,9 +169,10 @@ df_wide.head()
       <td>0.654097</td>
       <td>1.441149</td>
       <td>10.0</td>
-      <td>90.0</td>
+      <td>90</td>
       <td>0.1</td>
       <td>2</td>
+      <td>45</td>
       <td>0.132360</td>
       <td>0.498976</td>
       <td>0.176421</td>
@@ -160,9 +187,10 @@ df_wide.head()
       <td>0.596836</td>
       <td>1.263267</td>
       <td>10.0</td>
-      <td>90.0</td>
+      <td>90</td>
       <td>0.1</td>
       <td>3</td>
+      <td>45</td>
       <td>0.170402</td>
       <td>0.383948</td>
       <td>0.197424</td>
@@ -177,9 +205,10 @@ df_wide.head()
       <td>0.848929</td>
       <td>1.498162</td>
       <td>10.0</td>
-      <td>90.0</td>
+      <td>90</td>
       <td>0.1</td>
       <td>4</td>
+      <td>45</td>
       <td>-0.016356</td>
       <td>0.751322</td>
       <td>0.100700</td>
@@ -204,136 +233,44 @@ noises.sort()
 
 
 ```python
+noises_str = ["low", "medium", "high"]
+noises_dict = {k:v for k,v in zip(noises, noises_str)}
+```
+
+
+```python
 # how well do the observed values correlate with the truth?
 query = "noise == {noise} & iti == {iti} & ntrials == {ntrial}"
 corr_dict = {'iti': [],
              'ntrials': [],
              'noise': [],
-             'strgth': [],
+             'bsc_stregth': [],
              'corr': [],
              }
 for iti in itis[1:]:
     for ntrial in ntrials:
-        for noise in noises:
-            for strgth in ["high", "low"]:
+        for noise, noise_str in noises_dict.items():
+            for strgth in ["weak", "strong"]:
                 rquery = query.format(iti=str(iti),
                                       ntrial=str(ntrial),
                                       noise=str(noise))
                 tmp_df = df_wide.query(rquery)
                 corr = np.corrcoef(tmp_df[['corr_truth-' + strgth, 'corr_obs-' + strgth]], rowvar=False)[0,1]
                 tmp_df[['corr_truth-' + strgth, 'corr_obs-' + strgth]]
-                print("iti: {iti}, ntrial: {ntrial}, noise: {noise}, str: {strgth} corr: {corr}".format(iti=str(iti), 
-                                                                                                        ntrial=str(ntrial),
-                                                                                                        noise=str(noise),
-                                                                                                        corr=str(corr),
-                                                                                                        strgth=strgth))
+                # print("iti: {iti}, ntrial: {ntrial}, noise: {noise}, str: {strgth} corr: {corr}".format(iti=str(iti), 
+                #                                                                                         ntrial=str(ntrial),
+                #                                                                                         noise=str(noise),
+                #                                                                                         corr=str(corr),
+                #                                                                                         strgth=strgth))
                 corr_dict['iti'].append(iti)
                 corr_dict['ntrials'].append(ntrial)
-                corr_dict['noise'].append(noise)
-                corr_dict['strgth'].append(strgth)
+                corr_dict['noise'].append(noise_str)
+                corr_dict['bsc_stregth'].append(strgth)
                 corr_dict['corr'].append(corr)
 
 df_corr = pd.DataFrame.from_dict(corr_dict)
 df_corr.head()
 ```
-
-    iti: 4.0, ntrial: 30.0, noise: 0.001, str: high corr: 0.27062975422262064
-    iti: 4.0, ntrial: 30.0, noise: 0.001, str: low corr: 0.4221996706964973
-    iti: 4.0, ntrial: 30.0, noise: 0.01, str: high corr: 0.2668318940522804
-    iti: 4.0, ntrial: 30.0, noise: 0.01, str: low corr: 0.3760955251414892
-    iti: 4.0, ntrial: 30.0, noise: 0.1, str: high corr: 0.03317385011057736
-    iti: 4.0, ntrial: 30.0, noise: 0.1, str: low corr: 0.03909664693363392
-    iti: 4.0, ntrial: 60.0, noise: 0.001, str: high corr: 0.3781751552018449
-    iti: 4.0, ntrial: 60.0, noise: 0.001, str: low corr: 0.43645126478676394
-    iti: 4.0, ntrial: 60.0, noise: 0.01, str: high corr: 0.3484420804994983
-    iti: 4.0, ntrial: 60.0, noise: 0.01, str: low corr: 0.3597386624479271
-    iti: 4.0, ntrial: 60.0, noise: 0.1, str: high corr: 0.11275267086003027
-    iti: 4.0, ntrial: 60.0, noise: 0.1, str: low corr: 0.07252323705052183
-    iti: 4.0, ntrial: 90.0, noise: 0.001, str: high corr: 0.3807362655103749
-    iti: 4.0, ntrial: 90.0, noise: 0.001, str: low corr: 0.5408249146966717
-    iti: 4.0, ntrial: 90.0, noise: 0.01, str: high corr: 0.33020357989507615
-    iti: 4.0, ntrial: 90.0, noise: 0.01, str: low corr: 0.47061606478224016
-    iti: 4.0, ntrial: 90.0, noise: 0.1, str: high corr: 0.042379908060872176
-    iti: 4.0, ntrial: 90.0, noise: 0.1, str: low corr: 0.06695072936276553
-    iti: 4.0, ntrial: 120.0, noise: 0.001, str: high corr: 0.43579759424005104
-    iti: 4.0, ntrial: 120.0, noise: 0.001, str: low corr: 0.47175022783524545
-    iti: 4.0, ntrial: 120.0, noise: 0.01, str: high corr: 0.3845605260312449
-    iti: 4.0, ntrial: 120.0, noise: 0.01, str: low corr: 0.4002340113633783
-    iti: 4.0, ntrial: 120.0, noise: 0.1, str: high corr: 0.0444966178154158
-    iti: 4.0, ntrial: 120.0, noise: 0.1, str: low corr: 0.027376228987806332
-    iti: 6.0, ntrial: 30.0, noise: 0.001, str: high corr: 0.3104098003460417
-    iti: 6.0, ntrial: 30.0, noise: 0.001, str: low corr: 0.5523439372704808
-    iti: 6.0, ntrial: 30.0, noise: 0.01, str: high corr: 0.21849523361898077
-    iti: 6.0, ntrial: 30.0, noise: 0.01, str: low corr: 0.5032209870536927
-    iti: 6.0, ntrial: 30.0, noise: 0.1, str: high corr: 0.04820916816389782
-    iti: 6.0, ntrial: 30.0, noise: 0.1, str: low corr: 0.08762612076824818
-    iti: 6.0, ntrial: 60.0, noise: 0.001, str: high corr: 0.2863225042661321
-    iti: 6.0, ntrial: 60.0, noise: 0.001, str: low corr: 0.5487750317425921
-    iti: 6.0, ntrial: 60.0, noise: 0.01, str: high corr: 0.25940050290887895
-    iti: 6.0, ntrial: 60.0, noise: 0.01, str: low corr: 0.5101081716032903
-    iti: 6.0, ntrial: 60.0, noise: 0.1, str: high corr: 0.05623344051722677
-    iti: 6.0, ntrial: 60.0, noise: 0.1, str: low corr: 0.1082373083409282
-    iti: 6.0, ntrial: 90.0, noise: 0.001, str: high corr: 0.5002720631236751
-    iti: 6.0, ntrial: 90.0, noise: 0.001, str: low corr: 0.5134108315299939
-    iti: 6.0, ntrial: 90.0, noise: 0.01, str: high corr: 0.4301550950480817
-    iti: 6.0, ntrial: 90.0, noise: 0.01, str: low corr: 0.47560903077651534
-    iti: 6.0, ntrial: 90.0, noise: 0.1, str: high corr: 0.06840808670210123
-    iti: 6.0, ntrial: 90.0, noise: 0.1, str: low corr: 0.13850860438344395
-    iti: 6.0, ntrial: 120.0, noise: 0.001, str: high corr: 0.39854032094776826
-    iti: 6.0, ntrial: 120.0, noise: 0.001, str: low corr: 0.547846643167884
-    iti: 6.0, ntrial: 120.0, noise: 0.01, str: high corr: 0.33408746561321306
-    iti: 6.0, ntrial: 120.0, noise: 0.01, str: low corr: 0.4900240755373263
-    iti: 6.0, ntrial: 120.0, noise: 0.1, str: high corr: -0.03225136206627404
-    iti: 6.0, ntrial: 120.0, noise: 0.1, str: low corr: 0.15071824425750366
-    iti: 8.0, ntrial: 30.0, noise: 0.001, str: high corr: 0.3885253788967524
-    iti: 8.0, ntrial: 30.0, noise: 0.001, str: low corr: 0.68743613245309
-    iti: 8.0, ntrial: 30.0, noise: 0.01, str: high corr: 0.2741569586138988
-    iti: 8.0, ntrial: 30.0, noise: 0.01, str: low corr: 0.6019012811075125
-    iti: 8.0, ntrial: 30.0, noise: 0.1, str: high corr: -0.04742339686129157
-    iti: 8.0, ntrial: 30.0, noise: 0.1, str: low corr: 0.10153652617391465
-    iti: 8.0, ntrial: 60.0, noise: 0.001, str: high corr: 0.5220507062471043
-    iti: 8.0, ntrial: 60.0, noise: 0.001, str: low corr: 0.6257281113817
-    iti: 8.0, ntrial: 60.0, noise: 0.01, str: high corr: 0.45348761311567376
-    iti: 8.0, ntrial: 60.0, noise: 0.01, str: low corr: 0.5524897271529421
-    iti: 8.0, ntrial: 60.0, noise: 0.1, str: high corr: 0.14921909998474073
-    iti: 8.0, ntrial: 60.0, noise: 0.1, str: low corr: 0.09518655226609894
-    iti: 8.0, ntrial: 90.0, noise: 0.001, str: high corr: 0.4498669487394946
-    iti: 8.0, ntrial: 90.0, noise: 0.001, str: low corr: 0.6786235438029954
-    iti: 8.0, ntrial: 90.0, noise: 0.01, str: high corr: 0.38153278425408665
-    iti: 8.0, ntrial: 90.0, noise: 0.01, str: low corr: 0.5847989117729256
-    iti: 8.0, ntrial: 90.0, noise: 0.1, str: high corr: 0.11425770912190672
-    iti: 8.0, ntrial: 90.0, noise: 0.1, str: low corr: 0.10495063515091009
-    iti: 8.0, ntrial: 120.0, noise: 0.001, str: high corr: 0.5806164548709114
-    iti: 8.0, ntrial: 120.0, noise: 0.001, str: low corr: 0.6992835301009673
-    iti: 8.0, ntrial: 120.0, noise: 0.01, str: high corr: 0.47599151593891065
-    iti: 8.0, ntrial: 120.0, noise: 0.01, str: low corr: 0.614467472173318
-    iti: 8.0, ntrial: 120.0, noise: 0.1, str: high corr: 0.013202460626946369
-    iti: 8.0, ntrial: 120.0, noise: 0.1, str: low corr: 0.09160272201027206
-    iti: 10.0, ntrial: 30.0, noise: 0.001, str: high corr: 0.5991898795031159
-    iti: 10.0, ntrial: 30.0, noise: 0.001, str: low corr: 0.7320247488153375
-    iti: 10.0, ntrial: 30.0, noise: 0.01, str: high corr: 0.4869079682914977
-    iti: 10.0, ntrial: 30.0, noise: 0.01, str: low corr: 0.610749965580861
-    iti: 10.0, ntrial: 30.0, noise: 0.1, str: high corr: -0.0052115570341903705
-    iti: 10.0, ntrial: 30.0, noise: 0.1, str: low corr: 0.015235731403841189
-    iti: 10.0, ntrial: 60.0, noise: 0.001, str: high corr: 0.4743116355121079
-    iti: 10.0, ntrial: 60.0, noise: 0.001, str: low corr: 0.6916555619567676
-    iti: 10.0, ntrial: 60.0, noise: 0.01, str: high corr: 0.4021232922678589
-    iti: 10.0, ntrial: 60.0, noise: 0.01, str: low corr: 0.5991636449925111
-    iti: 10.0, ntrial: 60.0, noise: 0.1, str: high corr: -0.015037906113934258
-    iti: 10.0, ntrial: 60.0, noise: 0.1, str: low corr: 0.0990559300043827
-    iti: 10.0, ntrial: 90.0, noise: 0.001, str: high corr: 0.6932934940459394
-    iti: 10.0, ntrial: 90.0, noise: 0.001, str: low corr: 0.7879434641266765
-    iti: 10.0, ntrial: 90.0, noise: 0.01, str: high corr: 0.5660895437636708
-    iti: 10.0, ntrial: 90.0, noise: 0.01, str: low corr: 0.6500384230225479
-    iti: 10.0, ntrial: 90.0, noise: 0.1, str: high corr: 0.06620486011239722
-    iti: 10.0, ntrial: 90.0, noise: 0.1, str: low corr: 0.011884872800676245
-    iti: 10.0, ntrial: 120.0, noise: 0.001, str: high corr: 0.5967402848050507
-    iti: 10.0, ntrial: 120.0, noise: 0.001, str: low corr: 0.6861206800950204
-    iti: 10.0, ntrial: 120.0, noise: 0.01, str: high corr: 0.4812041973807355
-    iti: 10.0, ntrial: 120.0, noise: 0.01, str: low corr: 0.5963257952506648
-    iti: 10.0, ntrial: 120.0, noise: 0.1, str: high corr: 0.07930482231102905
-    iti: 10.0, ntrial: 120.0, noise: 0.1, str: low corr: 0.019532039660376064
-
 
 
 
@@ -359,7 +296,7 @@ df_corr.head()
       <th>iti</th>
       <th>ntrials</th>
       <th>noise</th>
-      <th>strgth</th>
+      <th>bsc_stregth</th>
       <th>corr</th>
     </tr>
   </thead>
@@ -367,48 +304,58 @@ df_corr.head()
     <tr>
       <th>0</th>
       <td>4.0</td>
-      <td>30.0</td>
-      <td>0.001</td>
-      <td>high</td>
-      <td>0.270630</td>
+      <td>15</td>
+      <td>low</td>
+      <td>weak</td>
+      <td>0.422200</td>
     </tr>
     <tr>
       <th>1</th>
       <td>4.0</td>
-      <td>30.0</td>
-      <td>0.001</td>
+      <td>15</td>
       <td>low</td>
-      <td>0.422200</td>
+      <td>strong</td>
+      <td>0.270630</td>
     </tr>
     <tr>
       <th>2</th>
       <td>4.0</td>
-      <td>30.0</td>
-      <td>0.010</td>
-      <td>high</td>
-      <td>0.266832</td>
+      <td>15</td>
+      <td>medium</td>
+      <td>weak</td>
+      <td>0.376096</td>
     </tr>
     <tr>
       <th>3</th>
       <td>4.0</td>
-      <td>30.0</td>
-      <td>0.010</td>
-      <td>low</td>
-      <td>0.376096</td>
+      <td>15</td>
+      <td>medium</td>
+      <td>strong</td>
+      <td>0.266832</td>
     </tr>
     <tr>
       <th>4</th>
       <td>4.0</td>
-      <td>30.0</td>
-      <td>0.100</td>
+      <td>15</td>
       <td>high</td>
-      <td>0.033174</td>
+      <td>weak</td>
+      <td>0.039097</td>
     </tr>
   </tbody>
 </table>
 </div>
 
 
+
+## Question 1: Correlate NibetaSeries results with Ground Truth
+
+The higher the correlation, the more "reliable" NiBetaSeries is.
+
+**Hypotheses**:
+1. as iti increases the correlation should increase
+2. as the number of trials increases the correlation should increase
+3. as the noise increases the correlation should decrease
+4. there should not be a difference if the ground truth is weak or strong
 
 
 ```python
@@ -419,20 +366,34 @@ def draw_heatmap(*args, **kwargs):
     d = d[::-1]
     sns.heatmap(d, **kwargs)
 
-fg = sns.FacetGrid(df_corr, col='strgth', row='noise')
-fg.map_dataframe(draw_heatmap, 'iti', 'ntrials', 'corr', vmin=0, vmax=0.8)
+fc = sns.FacetGrid(df_corr, col='bsc_stregth', row='noise')
+fc.map_dataframe(draw_heatmap, 'iti', 'ntrials', 'corr', vmin=0, vmax=0.8)
+fc.fig.suptitle("Observed Versus Ground Truth Correlation", y=1.02, size=15, weight='heavy')
+fc.set_xlabels("Inter Trial Interval (seconds)")
+fc.set_ylabels("Number of Trials")
+fc.savefig('../outputs/truth-obs_corr.svg')
 ```
 
 
+![png](output_9_0.png)
 
 
-    <seaborn.axisgrid.FacetGrid at 0x7f5d139f09e8>
+## Question 1: Results
 
+**Hypotheses**
+1. supported, as iti increases, so does the correlation
+2. supported*, there does appear to be an asymptote at 45 trials per condition
+3. supported, and it appears to follow a non-linear trend, where after a threshold of noise is reached, the correlations are not recoverable.
+4. not supported, there appears to be a stronger correspondance between ground truth and nibetaseries for the weak correlations
 
+## Question 2: betaseries contrasts
 
+The higher the statistic, the more likely a difference between conditions will be detected.
 
-![png](output_5_1.png)
-
+**Hypotheses**
+1. as iti increases the statistic should increase
+2. as the number of trials increases the statistic should increase
+3. as the noise increases the statistic should decrease
 
 
 ```python
@@ -448,18 +409,18 @@ ttest_dict = {
 
 for iti in itis[1:]:
     for ntrial in ntrials:
-        for noise in noises:
+        for noise, noise_str in noises_dict.items():
             rquery = query.format(iti=str(iti),
                                       ntrial=str(ntrial),
                                       noise=str(noise))
             tmp_df = df_wide.query(rquery)
             for source in ["truth", "obs"]:
-                t_val, p_val, deg_f = ttest_ind(tmp_df["corr_{src}-high".format(src=source)],
-                                            tmp_df["corr_{src}-low".format(src=source)])
+                t_val, p_val, deg_f = ttest_ind(tmp_df["corr_{src}-strong".format(src=source)],
+                                            tmp_df["corr_{src}-weak".format(src=source)])
                 
                 ttest_dict['iti'].append(iti)
                 ttest_dict['ntrials'].append(ntrial)
-                ttest_dict['noise'].append(noise)
+                ttest_dict['noise'].append(noise_str)
                 ttest_dict['p_value'].append(p_val)
                 ttest_dict['t_value'].append(t_val)
                 ttest_dict['df'].append(deg_f)
@@ -507,8 +468,8 @@ ttest_df.head()
       <td>61.802717</td>
       <td>truth</td>
       <td>4.0</td>
-      <td>30.0</td>
-      <td>0.001</td>
+      <td>15</td>
+      <td>low</td>
       <td>998.0</td>
     </tr>
     <tr>
@@ -517,8 +478,8 @@ ttest_df.head()
       <td>16.888598</td>
       <td>obs</td>
       <td>4.0</td>
-      <td>30.0</td>
-      <td>0.001</td>
+      <td>15</td>
+      <td>low</td>
       <td>998.0</td>
     </tr>
     <tr>
@@ -527,8 +488,8 @@ ttest_df.head()
       <td>61.802717</td>
       <td>truth</td>
       <td>4.0</td>
-      <td>30.0</td>
-      <td>0.010</td>
+      <td>15</td>
+      <td>medium</td>
       <td>998.0</td>
     </tr>
     <tr>
@@ -537,8 +498,8 @@ ttest_df.head()
       <td>13.741156</td>
       <td>obs</td>
       <td>4.0</td>
-      <td>30.0</td>
-      <td>0.010</td>
+      <td>15</td>
+      <td>medium</td>
       <td>998.0</td>
     </tr>
     <tr>
@@ -547,8 +508,8 @@ ttest_df.head()
       <td>61.802717</td>
       <td>truth</td>
       <td>4.0</td>
-      <td>30.0</td>
-      <td>0.100</td>
+      <td>15</td>
+      <td>high</td>
       <td>998.0</td>
     </tr>
   </tbody>
@@ -562,20 +523,30 @@ ttest_df.head()
 # show how t-values are modulated by trial number and iti
 ttest_filt_df = ttest_df.query("source == 'obs'")
 
-fg = sns.FacetGrid(ttest_filt_df, row='noise')
-fg.map_dataframe(draw_heatmap, 'iti', 'ntrials', 't_value', vmin=3, vmax=100)
+ft = sns.FacetGrid(ttest_filt_df, row='noise')
+ft.map_dataframe(draw_heatmap, 'iti', 'ntrials', 't_value', vmin=3, vmax=100, annot=True)
+ft.fig.suptitle("BSC Contrast", y=1.02, size=15, weight='heavy')
+ft.set_xlabels("Inter Trial Interval (seconds)", size=11, weight='heavy')
+
+ft.set_ylabels("", size=11, weight='heavy')
+ft.axes[1, 0].set_ylabel("Number of Trials (per condition)", size=13, weight='heavy')
+ft.savefig('../outputs/bsc_contrast.svg')
 ```
 
 
+![png](output_13_0.png)
 
 
-    <seaborn.axisgrid.FacetGrid at 0x7f5d0c066908>
+## Question 2: Results
 
+**Hypotheses**
+1. supported, as iti increases the statistic increases
+2. supported, as the number of trials increases the statistic increases
+3. supported, as the noise increases the statistic decreases, also a non-linear pattern
 
+## Data Transformation
 
-
-![png](output_7_1.png)
-
+Make the data long, for other analyses
 
 
 ```python
@@ -614,11 +585,12 @@ df_long.head()
   <thead>
     <tr style="text-align: right;">
       <th></th>
-      <th>iti</th>
       <th>num</th>
-      <th>ntrials</th>
-      <th>noise</th>
       <th>snr</th>
+      <th>ntrials_tot</th>
+      <th>noise</th>
+      <th>ntrials</th>
+      <th>iti</th>
       <th>corr</th>
       <th>source</th>
       <th>corr_str</th>
@@ -627,58 +599,63 @@ df_long.head()
   <tbody>
     <tr>
       <th>0</th>
-      <td>10.0</td>
       <td>0</td>
-      <td>90.0</td>
-      <td>0.1</td>
       <td>1.428565</td>
+      <td>90</td>
+      <td>0.1</td>
+      <td>45</td>
+      <td>10.0</td>
       <td>-0.031667</td>
       <td>obs</td>
-      <td>low</td>
+      <td>weak</td>
     </tr>
     <tr>
       <th>1</th>
-      <td>10.0</td>
       <td>1</td>
-      <td>90.0</td>
-      <td>0.1</td>
       <td>1.369580</td>
+      <td>90</td>
+      <td>0.1</td>
+      <td>45</td>
+      <td>10.0</td>
       <td>0.167236</td>
       <td>obs</td>
-      <td>low</td>
+      <td>weak</td>
     </tr>
     <tr>
       <th>2</th>
-      <td>10.0</td>
       <td>2</td>
-      <td>90.0</td>
-      <td>0.1</td>
       <td>1.441149</td>
+      <td>90</td>
+      <td>0.1</td>
+      <td>45</td>
+      <td>10.0</td>
       <td>-0.021301</td>
       <td>obs</td>
-      <td>low</td>
+      <td>weak</td>
     </tr>
     <tr>
       <th>3</th>
-      <td>10.0</td>
       <td>3</td>
-      <td>90.0</td>
-      <td>0.1</td>
       <td>1.263267</td>
+      <td>90</td>
+      <td>0.1</td>
+      <td>45</td>
+      <td>10.0</td>
       <td>0.015464</td>
       <td>obs</td>
-      <td>low</td>
+      <td>weak</td>
     </tr>
     <tr>
       <th>4</th>
-      <td>10.0</td>
       <td>4</td>
-      <td>90.0</td>
-      <td>0.1</td>
       <td>1.498162</td>
+      <td>90</td>
+      <td>0.1</td>
+      <td>45</td>
+      <td>10.0</td>
       <td>-0.003093</td>
       <td>obs</td>
-      <td>low</td>
+      <td>weak</td>
     </tr>
   </tbody>
 </table>
@@ -692,32 +669,50 @@ df_long_raw = df_long.query("corr_str != 'delta' & source != 'disc'")
 df_long_deriv = df_long.query("corr_str == 'delta' & source == 'disc'")
 ```
 
+## Question 3: mean/spread of ground truth and nibetaseries results
+
+**Hypotheses**
+1. the nibetaseries (observed) results should have the same mean as the ground truth results
+2. the nibetaseries (observed) results should have greater spread than the ground truth results
+
 
 ```python
 # show the average correlations across different conditions
-for noise in noises:
+for noise, noise_str in noises_dict.items():
     g = sns.catplot(x="corr_str", y="corr", hue="source",
-                    row="iti", row_order=itis[1:],
-                    col="ntrials", col_order=ntrials,
-                    kind="violin", data=df_long_raw.query('noise == {noise} & iti != 2.'.format(noise=noise)))
-    g.fig.suptitle('Noise Level = {noise}'.format(noise=noise), y=1.05)
+                    col="iti", col_order=itis[1:],
+                    row="ntrials", row_order=ntrials,
+                    kind="violin", legend_out=False,
+                    data=df_long_raw.query('noise == {noise} & iti != 2.'.format(noise=noise)))
+    g.fig.suptitle('Noise Level = {noise}'.format(noise=noise_str), y=1.05, size=25, weight='heavy')
+    g.set_xlabels("Beta Correlation Strength", size=15, weight='heavy')
+    g.set_xticklabels(g.axes.flatten()[-1].get_xticklabels(), size=11, weight='heavy')
+    g.set_ylabels("Beta Correlation", size=14, weight='heavy')
+    lgnd_ax = g.axes[0,0]
+    lb = ["observed", "ground truth"]
+    lgnd_ax.legend_.set_title("source", prop={"size": 10, "weight": 'heavy'})
+    for txt, lb in zip(lgnd_ax.legend_.get_texts(), lb):
+        txt.set_text(lb)
+    for ax in g.axes.flatten():
+        ax.set_title(ax.get_title(), size=12, weight='heavy')
+    g.savefig('../outputs/noise-{noise}_meancorr.svg'.format(noise=noise_str))
     plt.show()
 ```
 
 
-![png](output_10_0.png)
+![png](output_19_0.png)
 
 
 
-![png](output_10_1.png)
+![png](output_19_1.png)
 
 
 
-![png](output_10_2.png)
+![png](output_19_2.png)
 
 
+## Question 3: Results
 
-```python
-
-
-```
+**Hypotheses**
+1. not supported, the weak beta correlations have a positive bias and the strong beta correlations have a negative bias
+2. supported, the nibetaseries (observed) results have greater spread than the ground truth results
