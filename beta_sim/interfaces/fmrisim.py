@@ -12,6 +12,7 @@ class BrainiakBaseInterface(LibraryBaseInterface):
 
 
 class SimulateDataInputSpec(BaseInterfaceInputSpec):
+    iteration = traits.Int(desc='marking each iteration of the simulation')
     noise_dict = traits.Dict()
     brain_dimensions = traits.Array(shape=(3,))
     events_file = File(exists=True)
