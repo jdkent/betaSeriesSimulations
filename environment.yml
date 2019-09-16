@@ -2,6 +2,7 @@ name: betaseries_simulation
 channels:
   - conda-forge
   - defaults
+  - brainiak
 dependencies:
   - ipykernel=5.1.0
   - matplotlib=3.0.3
@@ -9,7 +10,12 @@ dependencies:
   - pip=19.0.3
   - python=3.6.8
   - statsmodels=0.9.0
+  - flake8
+  - pytest=5.0.1
+  - brainiak
+  - jupyter
+  - datalad
   - pip:
     - git+https://github.com/Neuroimaging-UvA/neurodesign.git@c79e248da94b0a5558a79a000a23f5ee7691f1cb#egg=neurodesign
-    - nibetaseries==0.2.3
-
+    - git+https://github.com/HBClab/NiBetaSeries.git@19655d90673a559ebd099b8194675833fce82303#egg=nibetaseries
+    - git+https://github.com/niflows/niflow-manager.git@8a223c248c925230f27385f0eb0e66275b422c46#egg=niflow-manager
