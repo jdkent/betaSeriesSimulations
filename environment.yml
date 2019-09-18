@@ -16,6 +16,6 @@ dependencies:
   - jupyter
   - datalad
   - pip:
-    - git+https://github.com/Neuroimaging-UvA/neurodesign.git@c79e248da94b0a5558a79a000a23f5ee7691f1cb#egg=neurodesign
+    - git+https://github.com/jdkent/neurodesign.git@d9f2a6de957b1187acbaae502ef49c88c916f012#egg=neurodesign
     - git+https://github.com/HBClab/NiBetaSeries.git@19655d90673a559ebd099b8194675833fce82303#egg=nibetaseries
     - git+https://github.com/niflows/niflow-manager.git@8a223c248c925230f27385f0eb0e66275b422c46#egg=niflow-manager
