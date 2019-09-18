@@ -29,6 +29,8 @@ class SimulateDataInputSpec(BaseInterfaceInputSpec):
 
 class SimulateDataOutputSpec(TraitedSpec):
     simulated_data = traits.Array()
+    iteration = traits.Int()
+    signal_magnitude = traits.Float()
 
 
 class SimulateData(BrainiakBaseInterface, SimpleInterface):
@@ -115,6 +117,7 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
 def _gen_beta_weights(events, corr_mats, brain_dimensions):
     import numpy as np
     from scipy.optimize import minimize
+    import time
 
     trial_types_uniq = events['trial_type'].unique()
     trial_types_num = trial_types_uniq.shape[0]
@@ -129,22 +132,31 @@ def _gen_beta_weights(events, corr_mats, brain_dimensions):
 
     # make sure there are the same number of trials for each
     # trial_type
-    counts = events.groupby('trial_type')['trial_type'].count()
-    trial_num = counts[0]
-    if np.all(counts != trial_num):
-        raise ValueError("there must be the same number of events "
-                         "per trial_type")
+    # counts = events.groupby('trial_type')['trial_type'].count()
+    # trial_num = counts[0]
+    # if np.all(counts != trial_num):
+    #    raise ValueError("there must be the same number of events "
+    #                     "per trial_type")
 
     n_voxels = np.prod(brain_dimensions)
     beta_dict = {}
     for trial_type, corr_mat in corr_mats.items():
+        trial_bool = events['trial_type'] == trial_type
+        trial_num = trial_bool.sum()
         # continue while loop while the target correlations
         # are more than 0.001 off
         c_wrong = True
         c_tol = 0.001
 
+        # want the mean betas of each voxel to be one
         gnd_means = np.ones(n_voxels)
-        while c_wrong:
+        # start a timer to cut-off how long it takes
+        start = time.time()
+        # cut-off time (in seconds)
+        overtime = 120
+        # initial time estimate
+        end = 0
+        while c_wrong and end < overtime:
             # generate betas
             initial_guess = np.random.multivariate_normal(
                 gnd_means,
@@ -170,6 +182,7 @@ def _gen_beta_weights(events, corr_mats, brain_dimensions):
             )
 
             c_wrong = c_tol < corr_error
+            end = time.time() - start
 
             # check if the correlations are close enough
             # idxs = np.tril_indices_from(corr, k=-1)
@@ -183,6 +196,8 @@ def _gen_beta_weights(events, corr_mats, brain_dimensions):
             # m_diff = np.abs(gnd_means - uniq_means)
             # m_wrong = np.any(m_diff > mean_tol)
 
+        if end > overtime:
+            raise("Could not make a correlation at the specific parameter")
         mean_fix = 1 - sim_betas.mean(axis=0)
         # ensure each beta series has average of 1.
         sim_betas_fixed = sim_betas + mean_fix
