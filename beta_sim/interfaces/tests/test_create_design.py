@@ -1,7 +1,7 @@
 def test_CreateDesign():
     import numpy as np
     from ..create_design import CreateDesign
-    trial_types = 3
+    trial_types = 2
     my_design = CreateDesign(
         tr_duration=2,
         trials=120,
@@ -12,7 +12,7 @@ def test_CreateDesign():
         iti_model='exponential',
         stim_duration=0.2,
         contrasts=np.identity(trial_types),
-        design_resolution=100,
+        design_resolution=0.1,
         rho=0.6,
     )
 
