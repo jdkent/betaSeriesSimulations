@@ -11,7 +11,7 @@ class NeuroDesignBaseInterface(LibraryBaseInterface):
 
 class CreateDesignInputSpec(BaseInterfaceInputSpec):
     tr_duration = traits.Float(desc="length of TR in seconds")
-    trials = traits.Int(desc="number of total trials")
+    trials = traits.Int(desc="number of trials per trial type")
     trial_types = traits.Int(desc="number of trial types")
     iti_min = traits.Float()
     iti_mean = traits.Float()
@@ -19,12 +19,16 @@ class CreateDesignInputSpec(BaseInterfaceInputSpec):
     iti_model = traits.Str(desc='choices: “fixed”,”uniform”,”exponential”')
     stim_duration = traits.Float()
     contrasts = traits.Either(traits.List(), traits.Array())
-    design_resolution = traits.Int()
+    design_resolution = traits.Float()
     rho = traits.Float()
 
 
 class CreateDesignOutputSpec(TraitedSpec):
     events_file = traits.File()
+    total_duration = traits.Int()
+    stim_duration = traits.Float()
+    n_trials = traits.Int()
+    iti_mean = traits.Float()
 
 
 class CreateDesign(NeuroDesignBaseInterface, SimpleInterface):
@@ -33,13 +37,18 @@ class CreateDesign(NeuroDesignBaseInterface, SimpleInterface):
 
     def _run_interface(self, runtime):
         from neurodesign import optimisation, experiment
-        from collections import Counter
+        import pandas as pd
+        import os
+
         # stimulus probability (each stimulus is equally likely to occur)
         stim_prob = [1 / self.inputs.trial_types] * self.inputs.trial_types
 
+        # calculate number of total trials
+        total_trials = self.inputs.trials * self.inputs.trial_types
+
         exp = experiment(
             TR=self.inputs.tr_duration,
-            n_trials=self.inputs.trials,
+            n_trials=total_trials,
             P=stim_prob,
             C=self.inputs.contrasts,
             n_stimuli=self.inputs.trial_types,
@@ -49,7 +58,8 @@ class CreateDesign(NeuroDesignBaseInterface, SimpleInterface):
             ITImodel=self.inputs.iti_model,
             ITImin=self.inputs.iti_min,
             ITImean=self.inputs.iti_mean,
-            ITImax=self.inputs.iti_max
+            ITImax=self.inputs.iti_max,
+            hardprob=True,
         )
 
         # find best design
@@ -57,15 +67,31 @@ class CreateDesign(NeuroDesignBaseInterface, SimpleInterface):
             experiment=exp,
             weights=[0, 0.25, 0.5, 0.25],
             preruncycles=2,
-            cycles=100,
+            cycles=15,
             optimisation='GA'
         )
 
-        # keep optimizing until there are an equal...
-        # ..number of trials for each trialtype
-        optimise = True
-        while optimise:
-            designer.optimise()
-            trial_count = list(Counter(designer.bestdesign.order).values())
-            # try again if conditions do have equal trials
-            optimise = not all(x == trial_count[0] for x in trial_count)
+        designer.optimise()
+
+        events_dict = {
+            "onsets": designer.bestdesign.onsets,
+            "duration": [self.inputs.stim_duration] * self.inputs.trials,
+            "trial_type": designer.bestdesign.order,
+        }
+        events_df = pd.DataFrame.from_dict(events_dict)
+
+        events_file = os.path.join(os.getcwd(), 'events.tsv')
+
+        events_df.to_csv(events_file, index=False, sep='\t')
+
+        self._results['events_file'] = events_file
+
+        self._results['total_duration'] = designer.bestdesign.duration
+
+        self._results['stim_duration'] = self.inputs.stim_duration
+
+        self._results['n_trials'] = self.inputs.trials
+
+        self._results['iti_mean'] = self.inputs.iti_mean
+
+        return runtime
