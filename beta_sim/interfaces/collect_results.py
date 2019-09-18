@@ -1,6 +1,5 @@
 from nipype.interfaces.base import (
     BaseInterfaceInputSpec, TraitedSpec,
-    File, LibraryBaseInterface,
     SimpleInterface, traits
     )
 
@@ -16,6 +15,9 @@ class ResultsEntryInputSpec(BaseInterfaceInputSpec):
     lsa_beta_series_imgs = traits.List()
     snr_measure = traits.Str()
     signal_magnitude = traits.List()
+    iteration = traits.Int()
+    iti_mean = traits.Either(traits.Float(), None)
+    n_trials = traits.Either(traits.Int(), None)
 
 
 class ResultsEntryOutputSpec(TraitedSpec):
@@ -41,30 +43,37 @@ class ResultsEntry(SimpleInterface):
             "estimation_method": [],
             "signal_magnitude": [],
             "snr_method": [],
+            "iteration": [],
+            "iti_mean": [],
+            "n_trials": [],
         }
         signal_magnitude = self.inputs.signal_magnitude[0]
         for method, nii_files in method_dict.items():
             for nii_file in nii_files:
                 # get the trial_type
                 match = BETA_FILENAME.match(nii_file)
-                trial_type = match.groupdict['trial_type']
+                trial_type = match.groupdict()['trial_type']
 
                 img = nib.load(nii_file)
                 data = img.get_data()
-                data = data.flatten()
+                data = data.squeeze()
 
-                corr_obs = np.corrcoef(data.T)
+                corr_obs = np.corrcoef(data)
                 corr_tgt = self.inputs.correlation_targets[trial_type]
 
                 idxs = np.tril_indices_from(corr_obs, k=-1)
-                corr_obs_flat = corr_obs[idxs]
-                corr_tgt_flat = corr_tgt[idxs]
+                # hard code for one value
+                corr_obs_flat = corr_obs[idxs][0]
+                corr_tgt_flat = corr_tgt[idxs][0]
 
                 entry_collector['correlation_target'].append(corr_tgt_flat)
                 entry_collector['correlation_observed'].append(corr_obs_flat)
                 entry_collector['estimation_method'].append(method)
                 entry_collector['signal_magnitude'].append(signal_magnitude)
                 entry_collector['snr_method'].append(self.inputs.snr_measure)
+                entry_collector['iteration'].append(self.inputs.iteration)
+                entry_collector['iti_mean'].append(self.inputs.iti_mean)
+                entry_collector['n_trials'].append(self.inputs.n_trials)
 
         self._results['result_entry'] = entry_collector
 
