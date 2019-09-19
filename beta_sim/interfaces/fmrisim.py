@@ -25,6 +25,8 @@ class SimulateDataInputSpec(BaseInterfaceInputSpec):
     signal_magnitude = traits.List()
     total_duration = traits.Int(desc="length of bold run in seconds")
     tr_duration = traits.Float(desc="length of TR in seconds")
+    iti_mean = traits.Float()
+    n_trials = traits.Int()
 
 
 class SimulateDataOutputSpec(TraitedSpec):
@@ -32,6 +34,8 @@ class SimulateDataOutputSpec(TraitedSpec):
     iteration = traits.Int()
     signal_magnitude = traits.List()
     events_file = File(exists=True)
+    iti_mean = traits.Float()
+    n_trials = traits.Int()
 
 
 class SimulateData(BrainiakBaseInterface, SimpleInterface):
@@ -115,6 +119,8 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
         self._results['iteration'] = self.inputs.iteration
         self._results['signal_magnitude'] = self.inputs.signal_magnitude
         self._results['events_file'] = self.inputs.events_file
+        self._results['iti_mean'] = self.inputs.iti_mean
+        self._results['n_trials'] = self.inputs.n_trials
 
         return runtime
 
