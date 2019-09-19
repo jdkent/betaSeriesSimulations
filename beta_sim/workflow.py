@@ -35,35 +35,65 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
                    ('rho', config['rho'])],
     )
 
-    simulate_data = pe.Node(
+    combine_node = pe.JoinNode(
+        niu.IdentityInterface(['events_files',
+                               'total_durations',
+                               'stim_durations',
+                               'n_trials_list',
+                               'iti_means']),
+        joinsource="create_design",
+        joinfield=['events_files',
+                   'total_durations',
+                   'stim_durations',
+                   'n_trials_list',
+                   'iti_means'],
+        name="combine_node")
+
+    simulate_data = pe.MapNode(
         SimulateData(tr_duration=config['tr_duration'],
                      brain_dimensions=config['brain_dimensions'],
                      correlation_targets=config['correlation_targets'],
                      snr_measure=config['snr_measure']),
+        iterfield=['events_file',
+                   'total_duration',
+                   'iti_mean',
+                   'n_trials'],
         name="simulate_data",
     )
 
-    result_entry = pe.Node(
+    result_entry = pe.MapNode(
         ResultsEntry(correlation_targets=config['correlation_targets'],
                      snr_measure=config['snr_measure']),
+        iterfield=['iti_mean',
+                   'n_trials',
+                   'lss_beta_series_imgs',
+                   'lsa_beta_series_imgs'],
         name="results_entry")
 
-    lss = pe.Node(LSSBetaSeries(high_pass=0.0078125,
-                                hrf_model='glover',
-                                smoothing_kernel=None),
-                  name="lss")
+    lss = pe.MapNode(LSSBetaSeries(high_pass=0.0078125,
+                                   hrf_model='glover',
+                                   smoothing_kernel=None),
+                     iterfield=['events_file',
+                                'bold_metadata',
+                                'mask_file',
+                                'bold_file'],
+                     name="lss")
 
-    lsa = pe.Node(LSABetaSeries(high_pass=0.0078125,
-                                hrf_model='glover',
-                                smoothing_kernel=None),
-                  name="lsa")
+    lsa = pe.MapNode(LSABetaSeries(high_pass=0.0078125,
+                                   hrf_model='glover',
+                                   smoothing_kernel=None),
+                     iterfield=['events_file',
+                                'bold_metadata',
+                                'mask_file',
+                                'bold_file'],
+                     name="lsa")
 
     # you passed in your own events file
     if config.get('events_file', None):
+        combine_node.inputs.events_file = config['events_file']
         simulate_data.iterables = [
             ('iteration', list(range(n_simulations))),
-            ('signal_magnitude', config['signal_magnitude']),
-            ('events_file', config['events_file'])]
+            ('signal_magnitude', config['signal_magnitude'])]
         simulate_data.inputs.total_duration = config['total_duration']
         # these will not exist for passed in events files
         result_entry.inputs.n_trials = None
@@ -76,64 +106,36 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
         ])
     # you wish to create an events file
     else:
-        import itertools
-        # check for the code in nipype utils.py
-        # iter_dict = dict([(field, lookup[key])
-        #                    for field, lookup in inode.iterables
-        #                      if key in lookup])
-        # reading:
-        # https://nipype.readthedocs.io/en/0.11.0/users/joinnode_and_itersource.html#itersource
-        # explanation:
-        # to iterate on a node that already
-        # has iterables, you must use
-        # *every* combination of those iterables as keys
-        # for the downstream iterables.
-        # so if I wanted to run 1000 simulations
-        #
-
-        # every downstrea
-        keys = list(itertools.product(
-            config['trials'],
-            config['stim_duration'],
-            config['iti_min'],
-            config['iti_mean'],
-            config['iti_max'],
-            config['iti_model'],
-            config['design_resolution'],
-            config['rho']))
-
         simulate_data.iterables = [
-            ('iteration', {k: list(range(n_simulations)) for k in keys}),
-            ('signal_magnitude', {k: config['signal_magnitude']
-                                  for k in keys}),
-            ('noise_dict', {k: config['noise_dict'] for k in keys})]
-        simulate_data.itersource = (
-            'create_design', ['trials',
-                              'stim_duration',
-                              'iti_min',
-                              'iti_mean',
-                              'iti_max',
-                              'iti_model',
-                              'design_resolution',
-                              'rho']
-        )
+            ('iteration', list(range(n_simulations))),
+            ('signal_magnitude', config['signal_magnitude']),
+            ('noise_dict', config['noise_dict'])]
 
         wf.connect([
-            (create_design, simulate_data,
-                [('events_file', 'events_file'),
-                 ('total_duration', 'total_duration')]),
-            (create_design, lss,
-                [('events_file', 'events_file')]),
-            (create_design, lsa,
-                [('events_file', 'events_file')]),
-            (create_design, result_entry,
+            (create_design, combine_node,
+                [('events_file', 'events_files'),
+                 ('total_duration', 'total_durations'),
+                 ('stim_duration', 'stim_durations'),
+                 ('n_trials', 'n_trials_list'),
+                 ('iti_mean', 'iti_means')]),
+            (combine_node, simulate_data,
+                [('events_files', 'events_file'),
+                 ('total_durations', 'total_duration'),
+                 ('iti_means', 'iti_mean'),
+                 ('n_trials_list', 'n_trials')]),
+            (combine_node, lss,
+                [('events_files', 'events_file')]),
+            (combine_node, lsa,
+                [('events_files', 'events_file')]),
+            (simulate_data, result_entry,
                 [('iti_mean', 'iti_mean'),
                  ('n_trials', 'n_trials')]),
         ])
 
-    make_mask_file = pe.Node(
+    make_mask_file = pe.MapNode(
         niu.Function(function=_make_mask_file,
                      output_names=["outpath"]),
+        iterfield=['data'],
         name='make_mask')
 
     make_metadata_dict = pe.Node(
@@ -143,9 +145,10 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
 
     make_metadata_dict.inputs.tr_duration = config['tr_duration']
 
-    make_bold_file = pe.Node(
+    make_bold_file = pe.MapNode(
         niu.Function(function=_make_bold_file,
                      output_names=["outpath"]),
+        iterfield=['data'],
         name='make_bold_file')
 
     combine_entries = pe.JoinNode(
