@@ -88,7 +88,11 @@ class CreateDesign(NeuroDesignBaseInterface, SimpleInterface):
 
         self._results['events_file'] = events_file
 
-        self._results['total_duration'] = designer.bestdesign.duration
+        # make sure duration is a multiple of the tr
+        duration = designer.bestdesign.experiment.duration
+        mod = duration % self.inputs.tr_duration
+        duration += mod
+        self._results['total_duration'] = int(duration)
 
         self._results['stim_duration'] = self.inputs.stim_duration
 
