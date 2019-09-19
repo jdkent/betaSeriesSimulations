@@ -138,7 +138,7 @@ def config_file_simple(base_path):
         ],
         "snr_measure": "CNR_Amp/Noise-SD",
         "signal_magnitude": [[37.06], [20.0]],
-        "trials": [30],
+        "trials": [15, 30],
         "iti_min": [1],
         "iti_mean": [6, 8],
         "iti_max": [16],
