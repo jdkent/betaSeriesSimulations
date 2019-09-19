@@ -19,7 +19,7 @@ def main():
     if opts.work_dir:
         work_dir = os.path.abspath(opts.work_dir)
     else:
-        work_dir = os.path.join(os.getcwd(), 'nibetaseries_work')
+        work_dir = os.path.join(os.getcwd(), 'simulation_work')
 
     os.makedirs(work_dir, exist_ok=True)
 
