@@ -67,14 +67,15 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
         iterfield=['iti_mean',
                    'n_trials',
                    'lss_beta_series_imgs',
-                   'lsa_beta_series_imgs'],
+                   'lsa_beta_series_imgs',
+                   'iteration',
+                   'signal_magnitude'],
         name="results_entry")
 
     lss = pe.MapNode(LSSBetaSeries(high_pass=0.0078125,
                                    hrf_model='glover',
                                    smoothing_kernel=None),
                      iterfield=['events_file',
-                                'bold_metadata',
                                 'mask_file',
                                 'bold_file'],
                      name="lss")
@@ -83,7 +84,6 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
                                    hrf_model='glover',
                                    smoothing_kernel=None),
                      iterfield=['events_file',
-                                'bold_metadata',
                                 'mask_file',
                                 'bold_file'],
                      name="lsa")
