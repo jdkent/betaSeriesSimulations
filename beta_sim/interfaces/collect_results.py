@@ -75,6 +75,10 @@ class ResultsEntry(SimpleInterface):
                 entry_collector['iti_mean'].append(self.inputs.iti_mean)
                 entry_collector['n_trials'].append(self.inputs.n_trials)
 
+        if self.inputs.iti_mean is None:
+            entry_collector.pop('iti_mean')
+        if self.inputs.n_trials is None:
+            entry_collector.pop('n_trials')
         self._results['result_entry'] = entry_collector
 
         return runtime
