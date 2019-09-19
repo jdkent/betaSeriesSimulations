@@ -20,7 +20,7 @@ def test_simple_init_beta_sim_wf(base_path, tr, tp,
     fname = 'test.tsv'
 
     wf = init_beta_sim_wf(config=config_dict_simple,
-                          n_simulations=10)
+                          n_simulations=2)
 
     wf.inputs.input_node.out_dir = str(base_path)
     wf.inputs.input_node.fname = fname
