@@ -52,6 +52,16 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
                      snr_measure=config['snr_measure']),
         name="results_entry")
 
+    lss = pe.Node(LSSBetaSeries(high_pass=0.0078125,
+                                hrf_model='glover',
+                                smoothing_kernel=None),
+                  name="lss")
+
+    lsa = pe.Node(LSABetaSeries(high_pass=0.0078125,
+                                hrf_model='glover',
+                                smoothing_kernel=None),
+                  name="lsa")
+
     # you passed in your own events file
     if config.get('events_file', None):
         simulate_data.iterables = [
@@ -62,6 +72,12 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
         # these will not exist for passed in events files
         result_entry.inputs.n_trials = None
         result_entry.inputs.iti_mean = None
+        wf.connect([
+            (simulate_data, lss,
+                [('events_file', 'events_file')]),
+            (simulate_data, lsa,
+                [('events_file', 'events_file')]),
+        ])
     # you wish to create an events file
     else:
         import itertools
@@ -69,7 +85,8 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
         # iter_dict = dict([(field, lookup[key])
         #                    for field, lookup in inode.iterables
         #                      if key in lookup])
-        # reading: https://nipype.readthedocs.io/en/0.11.0/users/joinnode_and_itersource.html#itersource
+        # reading:
+        # https://nipype.readthedocs.io/en/0.11.0/users/joinnode_and_itersource.html#itersource
         # explanation:
         # to iterate on a node that already
         # has iterables, you must use
@@ -109,6 +126,10 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
             (create_design, simulate_data,
                 [('events_file', 'events_file'),
                  ('total_duration', 'total_duration')]),
+            (create_design, lss,
+                [('events_file', 'events_file')]),
+            (create_design, lsa,
+                [('events_file', 'events_file')]),
         ])
 
     make_mask_file = pe.Node(
@@ -127,21 +148,6 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
         niu.Function(function=_make_bold_file,
                      output_names=["outpath"]),
         name='make_bold_file')
-
-    lss = pe.Node(LSSBetaSeries(high_pass=0.0078125,
-                                hrf_model='glover',
-                                smoothing_kernel=None),
-                  name="lss")
-
-    lsa = pe.Node(LSABetaSeries(high_pass=0.0078125,
-                                hrf_model='glover',
-                                smoothing_kernel=None),
-                  name="lsa")
-
-    result_entry = pe.Node(
-        ResultsEntry(correlation_targets=config['correlation_targets'],
-                     snr_measure=config['snr_measure']),
-        name="results_entry")
 
     combine_entries = pe.JoinNode(
         CombineEntries(),
