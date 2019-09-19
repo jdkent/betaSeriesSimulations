@@ -69,9 +69,9 @@ def config_file(base_path):
     config_file = base_path / "config.json"
     config_dict = {
         "correlation_targets": {
-                0: [[1, -0.8], [-0.8, 1]],
-                1: [[1, -0.6], [-0.6, 1]],
-                2: [[1, -0.4], [-0.4, 1]]
+                "c0": [[1, -0.8], [-0.8, 1]],
+                "c1": [[1, -0.6], [-0.6, 1]],
+                "c2": [[1, -0.4], [-0.4, 1]]
             },
         "tr_duration": 2,
         "noise_dict": [
@@ -116,8 +116,8 @@ def config_file_simple(base_path):
     config_file = base_path / "config_simple.json"
     config_dict = {
         "correlation_targets": {
-                0: [[1, -0.8], [-0.8, 1]],
-                1: [[1, 0], [0, 1]],
+                "c0": [[1, -0.8], [-0.8, 1]],
+                "c1": [[1, 0], [0, 1]],
             },
         "tr_duration": 2,
         "noise_dict": [
@@ -137,7 +137,7 @@ def config_file_simple(base_path):
             }
         ],
         "snr_measure": "CNR_Amp/Noise-SD",
-        "signal_magnitude": [[37.06]],
+        "signal_magnitude": [[37.06], [20.0]],
         "trials": [30],
         "iti_min": [1],
         "iti_mean": [6],
