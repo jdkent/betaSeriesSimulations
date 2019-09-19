@@ -103,8 +103,9 @@ class CombineEntries(SimpleInterface):
         import pandas as pd
         import os
 
-        dfs = [pd.DataFrame.from_dict(entry[0])
-               for entry in self.inputs.entries]
+        dfs = [pd.DataFrame.from_dict(entry)
+               for entry_list in self.inputs.entries
+               for entry in entry_list]
 
         report = pd.concat(dfs)
 
