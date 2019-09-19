@@ -78,7 +78,10 @@ class CreateDesign(NeuroDesignBaseInterface, SimpleInterface):
             "onset": designer.bestdesign.onsets,
             "duration": [self.inputs.stim_duration] *
             len(designer.bestdesign.onsets),
-            "trial_type": designer.bestdesign.order,
+            # force trial_type to be a string
+            # otherwise does not play nicely with lss
+            "trial_type": ["".join(["c", str(x)])
+                           for x in designer.bestdesign.order],
         }
         events_df = pd.DataFrame.from_dict(events_dict)
 
