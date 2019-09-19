@@ -30,7 +30,8 @@ class SimulateDataInputSpec(BaseInterfaceInputSpec):
 class SimulateDataOutputSpec(TraitedSpec):
     simulated_data = traits.Array()
     iteration = traits.Int()
-    signal_magnitude = traits.Float()
+    signal_magnitude = traits.List()
+    events_file = File(exists=True)
 
 
 class SimulateData(BrainiakBaseInterface, SimpleInterface):
@@ -70,6 +71,7 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
                 events_trial_type = events[events["trial_type"] == trial_type]
                 stim_func = sim.generate_stimfunction(
                     onsets=list(events_trial_type["onset"]),
+                    # the weights are the beta series
                     weights=list(beta_weights_dict[trial_type][:, idx]),
                     event_durations=list(events_trial_type["duration"]),
                     total_time=self.inputs.total_duration,
@@ -110,6 +112,9 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
         brain = signal_scaled + noise
 
         self._results['simulated_data'] = brain
+        self._results['iteration'] = self.inputs.iteration
+        self._results['signal_magnitude'] = self.inputs.signal_magnitude
+        self._results['events_file'] = self.inputs.events_file
 
         return runtime
 
