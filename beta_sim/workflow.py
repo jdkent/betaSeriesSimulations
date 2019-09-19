@@ -1,11 +1,7 @@
-# This file demonstrates a workflow-generating function, a particular convention for generating
+# This file demonstrates a workflow-generating function,
+# a particular convention for generating
 # nipype workflows. Others are possible.
 
-# Every workflow need pe.Workflow [0] and pe.Node [1], and most will need basic utility
-# interfaces [2].
-# [0] https://nipype.rtfd.io/en/latest/api/generated/nipype.pipeline.engine.workflows.html
-# [1] https://nipype.rtfd.io/en/latest/api/generated/nipype.pipeline.engine.nodes.html
-# [2] https://nipype.rtfd.io/en/latest/interfaces/generated/nipype.interfaces.utility/base.html
 from nipype.pipeline import engine as pe
 from nipype.interfaces import utility as niu
 from .interfaces.create_design import CreateDesign
@@ -130,6 +126,9 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
                 [('events_file', 'events_file')]),
             (create_design, lsa,
                 [('events_file', 'events_file')]),
+            (create_design, result_entry,
+                [('iti_mean', 'iti_mean'),
+                 ('n_trials', 'n_trials')]),
         ])
 
     make_mask_file = pe.Node(
