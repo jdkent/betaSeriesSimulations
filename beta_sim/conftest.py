@@ -5,18 +5,73 @@ from brainiak.utils import fmrisim as sim
 
 
 @pytest.fixture(scope='session')
+def lss_beta_series(base_path,
+                    correlation_targets,
+                    brain_dimensions):
+    import nibabel as nib
+    import numpy as np
+    trial_num = 20
+    n_voxels = np.prod(brain_dimensions)
+    brain_data_size = np.append(brain_dimensions, trial_num)
+    sim_lss = np.ones(brain_data_size)
+    gnd_means = np.ones(n_voxels)
+    lss_betas = np.random.multivariate_normal(
+        gnd_means,
+        np.array(correlation_targets["waffle"]),
+        size=(trial_num),
+        tol=0.00005
+    )
+
+    sim_lss[0, 0, :, :] = lss_betas.T
+
+    lss_img = nib.Nifti2Image(sim_lss, np.eye(4))
+
+    lss_file = base_path / 'desc-waffle_betaseries.nii.gz'
+
+    lss_img.to_filename(str(lss_file))
+
+    return lss_file
+
+
+@pytest.fixture(scope='session')
+def lsa_beta_series(base_path,
+                    correlation_targets,
+                    brain_dimensions):
+    import nibabel as nib
+    import numpy as np
+    trial_num = 20
+    n_voxels = np.prod(brain_dimensions)
+    brain_data_size = np.append(brain_dimensions, trial_num)
+    sim_lsa = np.ones(brain_data_size)
+    gnd_means = np.ones(n_voxels)
+    lsa_betas = np.random.multivariate_normal(
+        gnd_means,
+        np.array(correlation_targets["waffle"]),
+        size=(trial_num),
+        tol=0.00005
+    )
+
+    sim_lsa[0, 0, :, :] = lsa_betas.T
+
+    lsa_img = nib.Nifti2Image(sim_lsa, np.eye(4))
+
+    lsa_file = base_path / 'desc-waffle_betaseries.nii.gz'
+
+    lsa_img.to_filename(str(lsa_file))
+
+    return lsa_file
+
+
+@pytest.fixture(scope='session')
 def config_file(base_path):
     import json
 
     config_file = base_path / "config.json"
     config_dict = {
         "correlation_targets": {
-                "cond0": [[1, -0.8], [-0.8, 1]],
-                "cond1": [[1, 0], [0, 1]],
-                "cond2": [[1, 0.2], [0.2, 1]],
-                "cond3": [[1, 0.4], [0.4, 1]],
-                "cond4": [[1, 0.6], [0.6, 1]],
-                "cond5": [[1, 0.8], [0.8, 1]]
+                0: [[1, -0.8], [-0.8, 1]],
+                1: [[1, -0.6], [-0.6, 1]],
+                2: [[1, -0.4], [-0.4, 1]]
             },
         "tr_duration": 2,
         "noise_dict": [
@@ -37,9 +92,54 @@ def config_file(base_path):
         ],
         "snr_measure": "CNR_Amp/Noise-SD",
         "signal_magnitude": [[8.17], [37.06], [95.73]],
-        "trials": [15, 30, 45, 60],
+        "trials": [15, 30, 45],
         "iti_min": [1],
         "iti_mean": [2, 4, 6, 8],
+        "iti_max": [16],
+        "iti_model": ["exponential"],
+        "stim_duration": [0.2],
+        "design_resolution": [0.1],
+        "rho": [0.5],
+        "brain_dimensions": [1, 1, 2]
+    }
+
+    with open(config_file, 'w') as cf:
+        json.dump(config_dict, cf)
+
+    return config_file
+
+
+@pytest.fixture(scope='session')
+def config_file_simple(base_path):
+    import json
+
+    config_file = base_path / "config_simple.json"
+    config_dict = {
+        "correlation_targets": {
+                0: [[1, -0.8], [-0.8, 1]]
+            },
+        "tr_duration": 2,
+        "noise_dict": [
+            {
+                "auto_reg_rho": [0.5],
+                "auto_reg_sigma": 1,
+                "drift_sigma": 1,
+                "fwhm": 4,
+                "ma_rho": [0.0],
+                "matched": 0,
+                "max_activity": 1000,
+                "physiological_sigma": 1,
+                "sfnr": 60,
+                "snr": 40,
+                "task_sigma": 1,
+                "voxel_size": [3.0, 3.0, 3.0]
+            }
+        ],
+        "snr_measure": "CNR_Amp/Noise-SD",
+        "signal_magnitude": [[37.06]],
+        "trials": [30],
+        "iti_min": [1],
+        "iti_mean": [6],
         "iti_max": [16],
         "iti_model": ["exponential"],
         "stim_duration": [0.2],
@@ -59,6 +159,15 @@ def config_dict(config_file):
     from .cli import process_config
 
     config_dict = process_config(str(config_file))
+
+    return config_dict
+
+
+@pytest.fixture(scope='session')
+def config_dict_simple(config_file_simple):
+    from .cli import process_config
+
+    config_dict = process_config(str(config_file_simple))
 
     return config_dict
 
