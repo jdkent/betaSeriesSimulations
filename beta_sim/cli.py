@@ -36,6 +36,8 @@ def main():
     wf = init_beta_sim_wf(n_simulations=opts.n_simulations, config=config)
     wf.inputs.input_node.out_dir = out_dir
     wf.inputs.input_node.fname = opts.fname
+    wf.config['execution']['crashfile_format'] = 'txt'
+    wf.base_dir = work_dir
     wf.run(**plugin_settings)
 
 
