@@ -59,7 +59,8 @@ class CreateDesign(NeuroDesignBaseInterface, SimpleInterface):
             ITImin=self.inputs.iti_min,
             ITImean=self.inputs.iti_mean,
             ITImax=self.inputs.iti_max,
-            hardprob=True,
+            # hardprob true kicks out too many designs
+            hardprob=False,
         )
 
         # find best design
