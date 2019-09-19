@@ -1,6 +1,6 @@
 from nipype.interfaces.base import (
     BaseInterfaceInputSpec, TraitedSpec,
-    File, LibraryBaseInterface,
+    LibraryBaseInterface,
     SimpleInterface, traits
     )
 
