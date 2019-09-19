@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # This file provides a user-facing command-line interface (CLI)
 # to your workflow
 
