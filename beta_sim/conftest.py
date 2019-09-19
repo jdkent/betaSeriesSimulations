@@ -113,7 +113,7 @@ def config_file(base_path):
 def config_file_simple(base_path):
     import json
 
-    config_file = base_path / "config_simple.json"
+    config_file_s = base_path / "config_simple.json"
     config_dict = {
         "correlation_targets": {
                 "c0": [[1, -0.8], [-0.8, 1]],
@@ -140,7 +140,7 @@ def config_file_simple(base_path):
         "signal_magnitude": [[37.06], [20.0]],
         "trials": [30],
         "iti_min": [1],
-        "iti_mean": [6],
+        "iti_mean": [6, 8],
         "iti_max": [16],
         "iti_model": ["exponential"],
         "stim_duration": [0.2],
@@ -149,10 +149,10 @@ def config_file_simple(base_path):
         "brain_dimensions": [1, 1, 2]
     }
 
-    with open(config_file, 'w') as cf:
+    with open(config_file_s, 'w') as cf:
         json.dump(config_dict, cf)
 
-    return config_file
+    return config_file_s
 
 
 @pytest.fixture(scope='session')
