@@ -116,7 +116,8 @@ def config_file_simple(base_path):
     config_file = base_path / "config_simple.json"
     config_dict = {
         "correlation_targets": {
-                0: [[1, -0.8], [-0.8, 1]]
+                0: [[1, -0.8], [-0.8, 1]],
+                1: [[1, 0], [0, 1]],
             },
         "tr_duration": 2,
         "noise_dict": [
