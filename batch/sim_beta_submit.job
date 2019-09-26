@@ -1,0 +1,14 @@
+#!/bin/bash
+
+#$ -pe smp 56
+#$ -q UI
+#$ -m bea
+#$ -M james-kent@uiowa.edu
+#$ -o /Users/jdkent/Projects/betaSeriesSimulations/
+#$ -e /Users/jdkent/Projects/betaSeriesSimulations/
+
+conda activate bsim
+
+sims_beta -w /Users/jdkent/Projects/work --nthreads 56 --n-simulations 1000 \
+          /Users/jdkent/Projects/betaSeriesSimulations/ bulk_simulation.tsv \
+          /Users/jdkent/Projects/betaSeriesSimulations/data/example_config.json

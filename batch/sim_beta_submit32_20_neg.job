@@ -1,0 +1,14 @@
+#!/bin/bash
+
+#$ -pe smp 32
+#$ -q UI
+#$ -m bea
+#$ -M james-kent@uiowa.edu
+#$ -o /Users/jdkent/Projects/betaSeriesSimulations/
+#$ -e /Users/jdkent/Projects/betaSeriesSimulations/
+
+conda activate bsim
+
+sims_beta -w /nfsscratch/Users/jdkent/work_20_neg --nthreads 32 --n-simulations 20 \
+          /Users/jdkent/Projects/betaSeriesSimulations/ simulation-20_neg.tsv \
+          /Users/jdkent/Projects/betaSeriesSimulations/data/negative_tgt_config.json
