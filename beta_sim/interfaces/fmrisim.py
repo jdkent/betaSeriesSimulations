@@ -96,23 +96,52 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
         mask = template = np.ones(self.inputs.brain_dimensions)
         # to downsample the stimfunction
         skip_idx = int(temp_res * self.inputs.tr_duration)
+        tmp_noise_dict = {
+            'auto_reg_rho': [0.5],
+            'auto_reg_sigma': 1,
+            'drift_sigma': 1,
+            'fwhm': 4,
+            'ma_rho': [0.0],
+            'matched': 0,
+            'max_activity': 1000,
+            'physiological_sigma': 1,
+            'sfnr': 60, 'snr': 40,
+            'task_sigma': 1,
+            'voxel_size': [3.0, 3.0, 3.0]
+        }
         noise = sim.generate_noise(
             dimensions=self.inputs.brain_dimensions,
             stimfunction_tr=stim_func_total[::skip_idx, :],
             tr_duration=self.inputs.tr_duration,
             template=template,
             mask=mask,
-            noise_dict=self.inputs.noise_dict
+            noise_dict=tmp_noise_dict
         )
 
-        signal_scaled = sim.compute_signal_change(
+        tmp_signal_scaled = sim.compute_signal_change(
             signal_function=sim_brain,
             noise_function=noise,
-            noise_dict=self.inputs.noise_dict,
+            noise_dict=tmp_noise_dict,
             magnitude=list(self.inputs.signal_magnitude),
             method=self.inputs.snr_measure
         )
 
+        tmp_brain = tmp_signal_scaled + noise
+
+        corrected_signal_mag = _calc_cnr(
+            tmp_brain,
+            events,
+            self.inputs.tr_duration,
+            self.inputs.signal_magnitude)
+
+        signal_scaled = sim.compute_signal_change(
+            signal_function=sim_brain,
+            noise_function=noise,
+            noise_dict=tmp_noise_dict,
+            magnitude=list(corrected_signal_mag),
+            method=self.inputs.snr_measure
+        )
+        # final calculation
         brain = signal_scaled + noise
 
         self._results['simulated_data'] = brain
@@ -262,17 +291,22 @@ class ContrastNoiseRatio(SimpleInterface):
                                 signal_scaling=False,
                                 hrf_model='fir',
                                 drift_model='cosine',
-                                fir_delays=[0, 1, 2, 3, 4, 5, 6],
+                                fir_delays=[0, 1, 2, 3, 4, 5, 6, 7, 8],
                                 memory=cache_dir,
                                 minimize_memory=False)
 
         events_df = pd.read_csv(self.inputs.events_file, sep='\t')
 
         # only care about activation versus not
-        events_df['trial_type'] = ['event'] * len(events_df.index)
+        # events_df['trial_type'] = ['event'] * len(events_df.index)
 
         model.fit(bold_img, events_df)
-
+        regressors = model.design_matrices_[0].columns
+        regressors_of_interest = [
+            i for i, r in enumerate(regressors) if '_delay_3' in r]
+        contrast_of_interest = np.zeros(len(regressors))
+        contrast_val = 1 / len(regressors_of_interest)
+        contrast_of_interest[regressors_of_interest] = contrast_val
         # collect all residuals (do not know what I'm doing here)
         all_residual_std = [np.std(res.wresid[:, x])
                             for res in model.results_[0].values()
@@ -283,11 +317,11 @@ class ContrastNoiseRatio(SimpleInterface):
         # get the activation value at three scans post onset
         # (i.e., with a tr of 2, this will be 6 seconds)
         activation_zscore = model.compute_contrast(
-            'event_delay_3',
+            contrast_of_interest,
             output_type='z_score')
 
         activation_raw = model.compute_contrast(
-            'event_delay_3',
+            contrast_of_interest,
             output_type='effect_size')
 
         threshold_map, threshold = map_threshold(
@@ -302,9 +336,10 @@ class ContrastNoiseRatio(SimpleInterface):
         activation_values = activation_raw.get_data()[activation_mask]
 
         # take absolute value and mean
-        ave_amplitude = np.mean(np.abs(activation_values))
-
-        cnr = ave_amplitude / noise_std
+        # ave_amplitude = np.mean(np.abs(activation_values))
+        # max amplitude instead
+        max_amplitude = np.abs(activation_values).max()
+        cnr = max_amplitude / noise_std
 
         self._results['cnr'] = cnr
         self._results['noise_dict'] = noise_dict
@@ -325,3 +360,52 @@ def _check_data(x, target_corr_mat):
 
 def _check_corr(corr_mat_obs, corr_mat_gnd):
     return np.sum(np.abs(corr_mat_obs - corr_mat_gnd)) / 2
+
+
+def _calc_cnr(brain, events_df, tr, cnr_ref):
+    import tempfile
+    from nistats.first_level_model import FirstLevelModel
+    import nibabel as nib
+    import numpy as np
+
+    brain_img = nib.Nifti2Image(brain, np.eye(4))
+    cache_dir = tempfile.mkdtemp()
+
+    model = FirstLevelModel(t_r=tr,
+                            noise_model='ar1',
+                            standardize=False,
+                            signal_scaling=False,
+                            hrf_model='fir',
+                            drift_model='cosine',
+                            fir_delays=[0, 1, 2, 3, 4, 5, 6, 7, 8],
+                            memory=cache_dir,
+                            minimize_memory=False,
+                            mask=False)
+
+    model.fit(brain_img, events_df)
+    regressors = model.design_matrices_[0].columns
+    regressors_of_interest = [
+        i for i, r in enumerate(regressors) if '_delay_3' in r]
+    contrast_of_interest = np.zeros(len(regressors))
+    contrast_val = 1 / len(regressors_of_interest)
+    contrast_of_interest[regressors_of_interest] = contrast_val
+    # collect all residuals (do not know what I'm doing here)
+    all_residual_std = [np.std(res.wresid[:, x])
+                        for res in model.results_[0].values()
+                        for x in range(res.wresid.shape[1])]
+
+    # assume noise is average of all the residuals
+    noise_std = np.mean(all_residual_std)
+
+    activation_raw = model.compute_contrast(
+        contrast_of_interest,
+        output_type='effect_size')
+    # take absolute value and mean
+    # ave_amplitude = np.mean(np.abs(activation_values))
+    # max amplitude instead
+    max_amplitude = np.abs(activation_raw.get_data()).max()
+    cnr = max_amplitude / noise_std
+    # having a multiplier fix appears to correct the signal enough
+    correction = cnr_ref * (cnr_ref / cnr)
+
+    return [correction]
