@@ -221,4 +221,27 @@ for iti_mean, ax, n_trials in zip([2.0, 8.0, 2.0, 8.0],
             verticalalignment='center',
             horizontalalignment="left", bbox=props)
 g_hist.savefig('outputs/simplified_pwr.png')
+
+# TEST ON REAL DATA
+## get the events.tsv formatted correctly
 #%%
+# use real data
+events_df = pd.read_csv('data/test_bold/sub-GE120012_ses-pre_task-taskswitch_events.tsv', sep='\t')
+
+
+#%%
+events_df.loc[:, "switch"].replace({0: "single",
+                                    9: "single",
+                                    1: "repeat",
+                                    2: "switch"},
+                                   inplace=True)
+
+#%%
+events_df.rename(
+    columns={"trial_type": "stim_color",
+             "switch": "trial_type"},
+    inplace=True)
+
+
+#%%
+events_df.to_csv('data/test_bold/mod.tsv', sep='\t', index=False)
