@@ -15,6 +15,7 @@ dependencies:
   - brainiak
   - jupyter
   - datalad
+  - ptvsd
   - pip:
     - git+https://github.com/jdkent/neurodesign.git@2998954f3cf5354a6bd5f6f93380915f8f3ab693#egg=neurodesign
     - git+https://github.com/HBClab/NiBetaSeries.git@19655d90673a559ebd099b8194675833fce82303#egg=nibetaseries
