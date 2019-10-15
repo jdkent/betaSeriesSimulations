@@ -140,7 +140,8 @@ class ReadDesign(SimpleInterface):
 
         total_duration = nvols * tr
 
-        n_trials = len(events_df.index)
+        # trials per condition (on average)
+        n_trials = len(events_df.index) // events_df['trial_type'].nunique()
 
         iti_mean = total_duration / n_trials
 
