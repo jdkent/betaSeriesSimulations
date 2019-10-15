@@ -116,7 +116,7 @@ def config_file_simple(base_path):
     config_dict = {
         "correlation_targets": {
                 "c0": [[1, -0.8], [-0.8, 1]],
-                "c1": [[1, 0], [0, 1]],
+                "c1": [[1, 0.8], [0.8, 1]],
             },
         "tr_duration": 2,
         "noise_dict":
@@ -135,7 +135,7 @@ def config_file_simple(base_path):
                 "voxel_size": [3.0, 3.0, 3.0]
             },
         "snr_measure": "CNR_Amp/Noise-SD",
-        "signal_magnitude": [[37.06], [20.0]],
+        "signal_magnitude": [[37.06], [0.4]],
         "trials": [15, 30],
         "iti_min": [1],
         "iti_mean": [6, 8],
@@ -160,9 +160,9 @@ def config_file_manual(base_path):
     config_file_man = base_path / "config_manual.json"
     config_dict = {
         "correlation_targets": {
-                "congruent": [[1, 0], [0, 1]],
-                "neutral": [[1, 0.2], [0.2, 1]],
-                "incongruent": [[1, 0.6], [0.6, 1]],
+                "congruent": [[1, 0.8], [0.8, 1]],
+                "neutral": [[1, 0.8], [0.8, 1]],
+                "incongruent": [[1, 0.8], [0.8, 1]],
             },
         "tr_duration": 1.5,
         "noise_dict":
