@@ -8,7 +8,7 @@
             "c5": [[1, 0.8], [0.8, 1]]
         },
     "tr_duration": 2,
-    "noise_dict": [
+    "noise_dict":
         {
             "auto_reg_rho": [0.5],
             "auto_reg_sigma": 1,
@@ -22,8 +22,7 @@
             "snr": 40,
             "task_sigma": 1,
             "voxel_size": [3.0, 3.0, 3.0]
-        }
-    ],
+        },
     "snr_measure": "CNR_Amp/Noise-SD",
     "signal_magnitude": [[8.17], [37.06], [95.73]],
     "trials": [15, 30, 45, 60],
