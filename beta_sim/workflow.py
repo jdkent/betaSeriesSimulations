@@ -22,17 +22,17 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
 
     create_design = pe.Node(
         CreateDesign(tr_duration=config['tr_duration'],
-                     trial_types=len(config['trial_types']),
-                     contrasts=config['contrasts']),
+                     trial_types=len(config.get('trial_types', None)),
+                     contrasts=config.get('contrasts', [])),
         name="create_design",
-        iterables=[('trials', config['trials']),
-                   ('iti_min', config['iti_min']),
-                   ('iti_mean', config['iti_mean']),
-                   ('iti_max', config['iti_max']),
-                   ('iti_model', config['iti_model']),
-                   ('stim_duration', config['stim_duration']),
-                   ('design_resolution', config['design_resolution']),
-                   ('rho', config['rho'])],
+        iterables=[('trials', config.get('trials', None)),
+                   ('iti_min', config.get('iti_min', None)),
+                   ('iti_mean', config.get('iti_mean', None)),
+                   ('iti_max', config.get('iti_max', None)),
+                   ('iti_model', config.get('iti_model')),
+                   ('stim_duration', config.get('stim_duration', None)),
+                   ('design_resolution', config.get('design_resolution', None)),
+                   ('rho', config.get('rho', None))],
     )
 
     read_design = pe.Node(
