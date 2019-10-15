@@ -95,7 +95,7 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
         # add noise
         mask = template = np.ones(self.inputs.brain_dimensions)
         # to downsample the stimfunction
-        skip_idx = temp_res * int(self.inputs.tr_duration)
+        skip_idx = int(temp_res * self.inputs.tr_duration)
         noise = sim.generate_noise(
             dimensions=self.inputs.brain_dimensions,
             stimfunction_tr=stim_func_total[::skip_idx, :],
@@ -215,6 +215,101 @@ def _gen_beta_weights(events, corr_mats, brain_dimensions):
         beta_dict[trial_type] = sim_betas_fixed
 
     return beta_dict
+
+
+class ContrastNoiseRatioInputSpec(BaseInterfaceInputSpec):
+    events_file = traits.File()
+    bold_file = traits.File()
+    tr = traits.Float()
+
+
+class ContrastNoiseRatioOutputSpec(TraitedSpec):
+    cnr = traits.Float()
+    noise_dict = traits.Dict()
+
+
+class ContrastNoiseRatio(SimpleInterface):
+    input_spec = ContrastNoiseRatioInputSpec
+    output_spec = ContrastNoiseRatioOutputSpec
+
+    def _run_interface(self, runtime):
+        import tempfile
+        from nistats.first_level_model import FirstLevelModel
+        from nistats.thresholding import map_threshold
+        from brainiak.utils import fmrisim as sim
+        import pandas as pd
+        import numpy as np
+        import nibabel as nib
+
+        bold_img = nib.load(self.inputs.bold_file)
+        mask, template = sim.mask_brain(volume=bold_img.get_data(),
+                                        mask_self=True)
+
+        dimsize = bold_img.header.get_zooms()
+        noise_dict = {'voxel_size': [dimsize[0], dimsize[1], dimsize[2]],
+                      'matched': 1}
+
+        noise_dict = sim.calc_noise(volume=bold_img.get_data(),
+                                    mask=mask,
+                                    template=template,
+                                    noise_dict=noise_dict)
+
+        cache_dir = tempfile.mkdtemp()
+
+        model = FirstLevelModel(t_r=self.inputs.tr,
+                                noise_model='ar1',
+                                standardize=False,
+                                signal_scaling=False,
+                                hrf_model='fir',
+                                drift_model='cosine',
+                                fir_delays=[0, 1, 2, 3, 4, 5, 6],
+                                memory=cache_dir,
+                                minimize_memory=False)
+
+        events_df = pd.read_csv(self.inputs.events_file, sep='\t')
+
+        # only care about activation versus not
+        events_df['trial_type'] = ['event'] * len(events_df.index)
+
+        model.fit(bold_img, events_df)
+
+        # collect all residuals (do not know what I'm doing here)
+        all_residual_std = [np.std(res.wresid[:, x])
+                            for res in model.results_[0].values()
+                            for x in range(res.wresid.shape[1])]
+
+        # assume noise is average of all the residuals
+        noise_std = np.mean(all_residual_std)
+        # get the activation value at three scans post onset
+        # (i.e., with a tr of 2, this will be 6 seconds)
+        activation_zscore = model.compute_contrast(
+            'event_delay_3',
+            output_type='z_score')
+
+        activation_raw = model.compute_contrast(
+            'event_delay_3',
+            output_type='effect_size')
+
+        threshold_map, threshold = map_threshold(
+            activation_zscore,
+            level=.05,
+            height_control='fpr')
+
+        activation_mask = threshold_map.get_data()
+        activation_mask[np.nonzero(activation_mask)] = 1
+        activation_mask = activation_mask.astype(bool)
+        # get all significant activation values
+        activation_values = activation_raw.get_data()[activation_mask]
+
+        # take absolute value and mean
+        ave_amplitude = np.mean(np.abs(activation_values))
+
+        cnr = ave_amplitude / noise_std
+
+        self._results['cnr'] = cnr
+        self._results['noise_dict'] = noise_dict
+
+        return runtime
 
 
 def _check_data(x, target_corr_mat):

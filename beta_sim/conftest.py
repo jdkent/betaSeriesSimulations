@@ -74,7 +74,7 @@ def config_file(base_path):
                 "c2": [[1, -0.4], [-0.4, 1]]
             },
         "tr_duration": 2,
-        "noise_dict": [
+        "noise_dict":
             {
                 "auto_reg_rho": [0.5],
                 "auto_reg_sigma": 1,
@@ -88,8 +88,7 @@ def config_file(base_path):
                 "snr": 40,
                 "task_sigma": 1,
                 "voxel_size": [3.0, 3.0, 3.0]
-            }
-        ],
+            },
         "snr_measure": "CNR_Amp/Noise-SD",
         "signal_magnitude": [[8.17], [37.06], [95.73]],
         "trials": [15, 30, 45],
@@ -120,7 +119,7 @@ def config_file_simple(base_path):
                 "c1": [[1, 0], [0, 1]],
             },
         "tr_duration": 2,
-        "noise_dict": [
+        "noise_dict":
             {
                 "auto_reg_rho": [0.5],
                 "auto_reg_sigma": 1,
@@ -134,8 +133,7 @@ def config_file_simple(base_path):
                 "snr": 40,
                 "task_sigma": 1,
                 "voxel_size": [3.0, 3.0, 3.0]
-            }
-        ],
+            },
         "snr_measure": "CNR_Amp/Noise-SD",
         "signal_magnitude": [[37.06], [20.0]],
         "trials": [15, 30],
@@ -156,6 +154,52 @@ def config_file_simple(base_path):
 
 
 @pytest.fixture(scope='session')
+def config_file_manual(base_path):
+    import json
+
+    config_file_man = base_path / "config_manual.json"
+    config_dict = {
+        "correlation_targets": {
+                "congruent": [[1, 0], [0, 1]],
+                "neutral": [[1, 0.2], [0.2, 1]],
+                "incongruent": [[1, 0.6], [0.6, 1]],
+            },
+        "tr_duration": 1.5,
+        "noise_dict":
+            {
+                "auto_reg_rho": [0.5],
+                "auto_reg_sigma": 1,
+                "drift_sigma": 1,
+                "fwhm": 4,
+                "ma_rho": [0.0],
+                "matched": 0,
+                "max_activity": 1000,
+                "physiological_sigma": 1,
+                "sfnr": 60,
+                "snr": 40,
+                "task_sigma": 1,
+                "voxel_size": [3.0, 3.0, 3.0]
+            },
+        "snr_measure": "CNR_Amp/Noise-SD",
+        "signal_magnitude": [[37.06], [20.0]],
+        "trials": [15, 30],
+        "iti_min": [1],
+        "iti_mean": [6, 8],
+        "iti_max": [16],
+        "iti_model": ["exponential"],
+        "stim_duration": [0.2],
+        "design_resolution": [0.1],
+        "rho": [0.5],
+        "brain_dimensions": [1, 1, 2]
+    }
+
+    with open(config_file_man, 'w') as cf:
+        json.dump(config_dict, cf)
+
+    return config_file_man
+
+
+@pytest.fixture(scope='session')
 def config_dict(config_file):
     from .cli import process_config
 
@@ -169,6 +213,15 @@ def config_dict_simple(config_file_simple):
     from .cli import process_config
 
     config_dict = process_config(str(config_file_simple))
+
+    return config_dict
+
+
+@pytest.fixture(scope='session')
+def config_dict_manual(config_file_manual):
+    from .cli import process_config
+
+    config_dict = process_config(str(config_file_manual))
 
     return config_dict
 
@@ -255,3 +308,41 @@ def noise_dict(voxel_size):
     noise_dict['matched'] = 0
     noise_dict['voxel_size'] = voxel_size
     return noise_dict
+
+
+@pytest.fixture(scope='session')
+def example_data_dir(base_path):
+    import os
+    import urllib.request  # grad data from internet
+    import tarfile  # extract files from tar
+    data_dir = base_path / "exampleData"
+    os.makedirs(data_dir, exist_ok=True)
+    # download the tar data
+    url = "https://www.dropbox.com/s/fvtyld08srwl3x9/ds000164-test_v2.tar.gz?dl=1"
+    tar_file = os.path.join(data_dir, "ds000164.tar.gz")
+    u = urllib.request.urlopen(url)
+    data = u.read()
+    u.close()
+
+    # write tar data to file
+    with open(tar_file, "wb") as f:
+        f.write(data)
+
+    # extract the data
+    tar = tarfile.open(tar_file, mode='r|gz')
+    tar.extractall(path=data_dir)
+
+    os.remove(tar_file)
+
+    events_file = os.path.join(
+        data_dir,
+        "ds000164",
+        "sub-001",
+        "func",
+        "sub-001_task-stroop_events.tsv")
+
+    events_df = pd.read_csv(events_file, sep='\t', na_values="n/a")
+    events_df.rename({"condition": "trial_type"}, axis='columns', inplace=True)
+    events_df.to_csv(events_file, sep="\t", na_rep="n/a", index=False)
+
+    return data_dir

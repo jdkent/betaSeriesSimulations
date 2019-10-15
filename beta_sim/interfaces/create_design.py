@@ -104,3 +104,60 @@ class CreateDesign(NeuroDesignBaseInterface, SimpleInterface):
         self._results['iti_mean'] = self.inputs.iti_mean
 
         return runtime
+
+
+class ReadDesignInputSpec(BaseInterfaceInputSpec):
+    events_file = traits.File()
+    bold_file = traits.File()
+    tr = traits.Float()
+
+
+class ReadDesignOutputSpec(TraitedSpec):
+    events_file = traits.File()
+    total_duration = traits.Int()
+    stim_duration = traits.Float()
+    n_trials = traits.Int()
+    iti_mean = traits.Float()
+    tr = traits.Float()
+    bold_file = traits.File()
+
+
+class ReadDesign(SimpleInterface):
+    input_spec = ReadDesignInputSpec
+    output_spec = ReadDesignOutputSpec
+
+    def _run_interface(self, runtime):
+        import pandas as pd
+        import nibabel as nib
+
+        events_df = pd.read_csv(self.inputs.events_file, sep='\t')
+        bold_img = nib.load(self.inputs.bold_file)
+
+        nvols = bold_img.get_shape()[-1]
+
+        # tr = bold_img.header.get_zooms()[-1]
+        tr = self.inputs.tr
+
+        total_duration = nvols * tr
+
+        n_trials = len(events_df.index)
+
+        iti_mean = total_duration / n_trials
+
+        stim_duration = events_df['duration'].mean()
+
+        self._results['total_duration'] = int(total_duration)
+
+        self._results['stim_duration'] = stim_duration
+
+        self._results['n_trials'] = n_trials
+
+        self._results['iti_mean'] = iti_mean
+
+        self._results['tr'] = int(tr)
+
+        self._results['events_file'] = self.inputs.events_file
+
+        self._results['bold_file'] = self.inputs.bold_file
+
+        return runtime

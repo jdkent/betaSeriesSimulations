@@ -4,8 +4,8 @@
 
 from nipype.pipeline import engine as pe
 from nipype.interfaces import utility as niu
-from .interfaces.create_design import CreateDesign
-from .interfaces.fmrisim import SimulateData
+from .interfaces.create_design import CreateDesign, ReadDesign
+from .interfaces.fmrisim import SimulateData, ContrastNoiseRatio
 from .interfaces.collect_results import ResultsEntry, CombineEntries
 from nibetaseries.interfaces.nistats import LSABetaSeries, LSSBetaSeries
 
@@ -35,30 +35,19 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
                    ('rho', config['rho'])],
     )
 
-    combine_node = pe.JoinNode(
-        niu.IdentityInterface(['events_files',
-                               'total_durations',
-                               'stim_durations',
-                               'n_trials_list',
-                               'iti_means']),
-        joinsource="create_design",
-        joinfield=['events_files',
-                   'total_durations',
-                   'stim_durations',
-                   'n_trials_list',
-                   'iti_means'],
-        name="combine_node")
+    read_design = pe.Node(
+        ReadDesign(tr=config['tr_duration']),
+        name="read_design",
+        iterables=[('events_file', config.get('events_file', None)),
+                   ('bold_file', config.get('bold_file', None))],
+        synchronize=True,
+    )
 
-    simulate_data = pe.MapNode(
-        SimulateData(tr_duration=config['tr_duration'],
-                     brain_dimensions=config['brain_dimensions'],
-                     correlation_targets=config['correlation_targets'],
-                     snr_measure=config['snr_measure']),
+    est_cnr = pe.MapNode(
+        ContrastNoiseRatio(tr=config['tr_duration']),
+        name="est_cnr",
         iterfield=['events_file',
-                   'total_duration',
-                   'iti_mean',
-                   'n_trials'],
-        name="simulate_data",
+                   'bold_file']
     )
 
     result_entry = pe.MapNode(
@@ -90,47 +79,102 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
 
     # you passed in your own events file
     if config.get('events_file', None):
-        combine_node.inputs.events_file = config['events_file']
-        simulate_data.iterables = [
-            ('iteration', list(range(n_simulations))),
-            ('signal_magnitude', config['signal_magnitude'])]
-        simulate_data.inputs.total_duration = config['total_duration']
-        # these will not exist for passed in events files
-        result_entry.inputs.n_trials = None
-        result_entry.inputs.iti_mean = None
-        wf.connect([
-            (simulate_data, lss,
-                [('events_file', 'events_file')]),
-            (simulate_data, lsa,
-                [('events_file', 'events_file')]),
-        ])
+        design_node = read_design
+
+        sim_data_iterables = [
+            ('iteration', list(range(n_simulations)))]
+        sim_data_iterfield = [
+            'events_file',
+            'total_duration',
+            'iti_mean',
+            'n_trials',
+            'noise_dict']
+        sim_data_kwargs = {}
+        result_entry.iterfield = [
+            'iti_mean',
+            'n_trials',
+            'lss_beta_series_imgs',
+            'lsa_beta_series_imgs',
+            'iteration',
+            'signal_magnitude',
+        ]
+
     # you wish to create an events file
     else:
-        simulate_data.iterables = [
+        design_node = create_design
+        sim_data_iterables = [
             ('iteration', list(range(n_simulations))),
-            ('signal_magnitude', config['signal_magnitude']),
-            ('noise_dict', config['noise_dict'])]
+            ('signal_magnitude', config['signal_magnitude'])]
+        sim_data_iterfield = [
+            'events_file',
+            'total_duration',
+            'iti_mean',
+            'n_trials']
+        sim_data_kwargs = {'noise_dict': config['noise_dict']}
+        result_entry.iterfield = [
+            'iti_mean',
+            'n_trials',
+            'lss_beta_series_imgs',
+            'lsa_beta_series_imgs',
+            'iteration',
+            'signal_magnitude',
+        ]
 
+    combine_node = pe.JoinNode(
+        niu.IdentityInterface(['events_files',
+                               'total_durations',
+                               'stim_durations',
+                               'n_trials_list',
+                               'iti_means']),
+        joinsource=design_node,
+        joinfield=['events_files',
+                   'total_durations',
+                   'stim_durations',
+                   'n_trials_list',
+                   'iti_means'],
+        name="combine_node")
+
+    simulate_data = pe.MapNode(
+        SimulateData(tr_duration=config['tr_duration'],
+                     brain_dimensions=config['brain_dimensions'],
+                     correlation_targets=config['correlation_targets'],
+                     snr_measure=config['snr_measure'],
+                     **sim_data_kwargs),
+        iterfield=sim_data_iterfield,
+        iterables=sim_data_iterables,
+        name="simulate_data",
+    )
+
+    if config.get('events_file', None):
         wf.connect([
-            (create_design, combine_node,
-                [('events_file', 'events_files'),
-                 ('total_duration', 'total_durations'),
-                 ('stim_duration', 'stim_durations'),
-                 ('n_trials', 'n_trials_list'),
-                 ('iti_mean', 'iti_means')]),
-            (combine_node, simulate_data,
-                [('events_files', 'events_file'),
-                 ('total_durations', 'total_duration'),
-                 ('iti_means', 'iti_mean'),
-                 ('n_trials_list', 'n_trials')]),
-            (combine_node, lss,
-                [('events_files', 'events_file')]),
-            (combine_node, lsa,
-                [('events_files', 'events_file')]),
-            (simulate_data, result_entry,
-                [('iti_mean', 'iti_mean'),
-                 ('n_trials', 'n_trials')]),
+            (read_design, est_cnr,
+                [('events_file', 'events_file'),
+                 ('bold_file', 'bold_file')]),
+            (est_cnr, simulate_data,
+                [('cnr', 'signal_magnitude'),
+                 ('noise_dict', 'noise_dict')]),
         ])
+
+    wf.connect([
+        (design_node, combine_node,
+            [('events_file', 'events_files'),
+             ('total_duration', 'total_durations'),
+             ('stim_duration', 'stim_durations'),
+             ('n_trials', 'n_trials_list'),
+             ('iti_mean', 'iti_means')]),
+        (combine_node, simulate_data,
+            [('events_files', 'events_file'),
+             ('total_durations', 'total_duration'),
+             ('iti_means', 'iti_mean'),
+             ('n_trials_list', 'n_trials')]),
+        (combine_node, lss,
+            [('events_files', 'events_file')]),
+        (combine_node, lsa,
+            [('events_files', 'events_file')]),
+        (simulate_data, result_entry,
+            [('iti_mean', 'iti_mean'),
+                ('n_trials', 'n_trials')]),
+    ])
 
     make_mask_file = pe.MapNode(
         niu.Function(function=_make_mask_file,
