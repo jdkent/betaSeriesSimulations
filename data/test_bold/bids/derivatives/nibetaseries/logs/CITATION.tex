@@ -68,11 +68,12 @@ from that condition were modeled in a second regressor, and other
 conditions were modeled in their own regressors. Each condition
 regressor was convolved with a ``glover'' hemodynamic response function
 for the model.\\
-In addition to condition regressors, WhiteMatter, CSF, Cosine01,
-Cosine02, Cosine03, Cosine04, Cosine05, Cosine06, Cosine07 and a
-high-pass filter of 0.0078125 Hz (implemented using a cosine drift
-model) were included in the model. AR(1) prewhitening was applied in
-each model to account for temporal autocorrelation.
+In addition to condition regressors, white\_matter, csf, cosine00,
+cosine01, cosine02, cosine03, cosine04, cosine05, cosine06, cosine07,
+cosine08, cosine09, cosine10, cosine11, cosine12 and a high-pass filter
+of 0.0078125 Hz (implemented using a cosine drift model) were included
+in the model. AR(1) prewhitening was applied in each model to account
+for temporal autocorrelation.
 
 After fitting each model, the parameter estimate (i.e., beta) map
 associated with the target trial's regressor was retained and
