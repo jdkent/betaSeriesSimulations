@@ -1,6 +1,6 @@
 {   
-    "events_file": ["/home/coder/project/data/test_bold/mod.tsv"],
-    "bold_file": ["/home/coder/project/data/test_bold/sub-GE120012_ses-pre_task-taskswitch_space-MNI152NLin2009cAsym_desc-smoothAROMAnonaggr_bold.nii.gz"],
+    "events_file": ["/Users/jdkent/Projects/betaSeriesSimulations/data/test_bold/bids/sub-GE120012/ses-pre/func/sub-GE120012_ses-pre_task-taskswitch_events.tsv"],
+    "bold_file": ["/Users/jdkent/Projects/betaSeriesSimulations/data/test_bold/bids/derivatives/fmriprep/sub-GE120012/ses-pre/func/sub-GE120012_ses-pre_task-taskswitch_space-MNI152NLin2009cAsym_desc-smoothAROMAnonaggr_bold.nii.gz"],
     "correlation_targets": {
             "single": [[1, 0], [0, 1]],
             "repeat": [[1, 0.4], [0.4, 1]],
