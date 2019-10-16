@@ -7,7 +7,7 @@ which is based on *Nipype* 1.1.9 [@Gorgolewski2011; @Gorgolewski2018].
 
 Least squares- separate (LSS) models were generated for each event in the task
 following the method described in @Turner2012a, using Nistats 0.0.1b.            
-Prior to modeling, preprocessed data were smoothed with a Gaussian kernel with a FWHM of 6.0 mm, masked,and mean-scaled over time.
+Prior to modeling, preprocessed data were masked,and mean-scaled over time.
 For each trial, preprocessed data were subjected to a general linear model in
 which the trial was modeled in its own regressor, while all other trials from
 that condition were modeled in a second regressor, and other conditions were

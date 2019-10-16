@@ -60,14 +60,13 @@ Results included in this manuscript come from modeling performed using
 Least squares- separate (LSS) models were generated for each event in
 the task following the method described in \citet{Turner2012a}, using
 Nistats 0.0.1b.\\
-Prior to modeling, preprocessed data were smoothed with a Gaussian
-kernel with a FWHM of 6.0 mm, masked,and mean-scaled over time. For each
-trial, preprocessed data were subjected to a general linear model in
-which the trial was modeled in its own regressor, while all other trials
-from that condition were modeled in a second regressor, and other
-conditions were modeled in their own regressors. Each condition
-regressor was convolved with a ``glover'' hemodynamic response function
-for the model.\\
+Prior to modeling, preprocessed data were masked,and mean-scaled over
+time. For each trial, preprocessed data were subjected to a general
+linear model in which the trial was modeled in its own regressor, while
+all other trials from that condition were modeled in a second regressor,
+and other conditions were modeled in their own regressors. Each
+condition regressor was convolved with a ``glover'' hemodynamic response
+function for the model.\\
 In addition to condition regressors, white\_matter, csf, cosine00,
 cosine01, cosine02, cosine03, cosine04, cosine05, cosine06, cosine07,
 cosine08, cosine09, cosine10, cosine11, cosine12 and a high-pass filter
