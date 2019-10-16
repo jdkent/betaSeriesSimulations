@@ -169,7 +169,12 @@ def test_power(df, estimation_method="lss", iti_mean=6.0,
                                   replace=False)
         t, p = ttest_1samp(sample, 0)
         test_collector["t_value"].append(t)
-        test_collector["p_value"].append(p)
+        if correlation_tgt1 < correlation_tgt2 and t > 0 and p < 0.05:
+            test_collector["p_value"].append(1-p)
+        elif correlation_tgt1 > correlation_tgt2 and t < 0 and p < 0.05:
+            test_collector["p_value"].append(1-p)
+        else:
+            test_collector["p_value"].append(p)
 
     test_df = pd.DataFrame.from_dict(test_collector)
     pwr = np.sum(test_df["p_value"] < 0.05) / simulations
@@ -293,30 +298,83 @@ for cond in ["switch", "repeat", "single"]:
     plt.show()
 
 #%%
-df_sub = df_dict['repeat'] - df_dict['single']
-NETWORK_MAPPING = {
-    1: "VisCent",
-    2: "VisPeri",
-    3: "SomMotA",
-    4: "SomMotB",
-    5: "DorsAttnA",
-    6: "DorsAttnB",
-    7: "SalVentAttnA",
-    8: "SalVentAttnB",
-    9: "LimbicA",
-    10: "LimbicB",
-    11: "ContC",
-    12: "ContA",
-    13: "ContB",
-    14: "TempPar",
-    15: "DefaultC",
-    16: "DefaultA",
-    17: "DefaultB",
-}
+df_dict[cond].describe()
 
-net_temp = "{net}.*"
-for net in NETWORK_MAPPING.values():
-    netr = net_temp.format(net=net)
-    print(net, str(np.nanmean(df_sub.filter(axis=0, regex=netr).filter(axis=1, regex=netr))))
+#%%
+df_sub = df_dict['switch'] - df_dict['repeat']
+ax = sns.heatmap(
+    df_sub,
+    cmap='viridis',
+    )
 
+ax.set_title(
+    label="Switch - Repeat",
+    fontdict={"fontsize": 20, "fontweight": "heavy"})
+cbar = ax.collections[0].colorbar
+cbar.set_label('Correlation Difference\n(Fisher r-z)',
+               fontsize=15,
+               fontweight="heavy")
+cbar.ax.tick_params(labelsize=13)
+
+ax.set_xticklabels(ax.get_xticklabels(), fontsize=13)
+ax.set_yticklabels(ax.get_yticklabels(), fontsize=13)
+ax.figure.savefig("outputs/beta_series_contrast_switch-repeat.svg")
+#%%
+# get the bold simulation results
+bold_sim_file = os.path.join(
+    "data",
+    "test_bold",
+    "bold_simulation.tsv")
+df_bold_sim = pd.read_csv(bold_sim_file, sep="\t")
+df_bold_sim.head()
+
+#%%
+df_bold_sim.loc[df_bold_sim['correlation_observed'] == 1, 'correlation_observed'] -= 0.0001
+df_bold_sim.loc[df_bold_sim['correlation_observed'] == -1, 'correlation_observed'] += 0.0001
+df_bold_sim['corr_obs_trans'] = np.arctanh(df_bold_sim['correlation_observed'])
+df_bold_sim['corr_obs_trans_clip'] = np.clip(df_bold_sim['corr_obs_trans'], -1.5, 1.5)
+
+#%%
+bold_pwr_dict = {"method": [], "power": [], "participants": []}
+for method in ["lsa", "lss"]:
+    # from 5 participants to 40
+    for participants in range(5, 41):
+        bold_test_df, bold_pwr = test_power(
+            df_bold_sim,
+            estimation_method=method,
+            iti_mean=18.84,
+            n_trials=50,
+            signal_magnitude=1.7502511308736108,
+            correlation_tgt1=0.0,
+            correlation_tgt2=0.1,
+            sample_size=participants)
+        bold_pwr_dict['method'].append(method)
+        bold_pwr_dict['participants'].append(participants)
+        bold_pwr_dict['power'].append(bold_pwr)
+
+bold_pwr_df = pd.DataFrame.from_dict(bold_pwr_dict)
+bold_pwr_df.head()
+
+#%%
+sns.set(style="ticks", rc={"lines.linewidth": 3.0})
+plt.style.use("dark_background")
+pp = sns.lineplot(
+    x='participants',
+    y='power',
+    hue='method',
+    legend="brief",
+    hue_order=["lss", "lsa"],
+    data=bold_pwr_df)
+
+lgnd = pp.legend()
+lgnd.get_texts()[0].set_text('')
+for txt in lgnd.get_texts()[1:]:
+    txt.set_fontsize(15)
+lgnd.set_title("Estimation Method", prop={'size': 15, 'weight': 'heavy'})
+pp.set_xlabel("# of Participants",
+              fontdict={'fontsize': 15, 'fontweight': 'heavy'})
+pp.set_ylabel("Power",
+              fontdict={'fontsize': 15, 'fontweight': 'heavy'})
+pp.axhline(0.8, linestyle='--')
+pp.figure.savefig('outputs/power_plot.svg')
 #%%
