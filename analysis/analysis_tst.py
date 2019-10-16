@@ -1,5 +1,6 @@
 
 #%%
+import os
 import seaborn as sns
 import pandas as pd
 import numpy as np
@@ -226,22 +227,96 @@ g_hist.savefig('outputs/simplified_pwr.png')
 ## get the events.tsv formatted correctly
 #%%
 # use real data
-events_df = pd.read_csv('data/test_bold/sub-GE120012_ses-pre_task-taskswitch_events.tsv', sep='\t')
+events_df = pd.read_csv(
+    'data/test_bold/bids/sub-GE120012/ses-pre/func/sub-GE120012_ses-pre_task-taskswitch_events.tsv', sep='\t'
+)
 
 
 #%%
-events_df.loc[:, "switch"].replace({0: "single",
-                                    9: "single",
-                                    1: "repeat",
-                                    2: "switch"},
-                                   inplace=True)
-
-#%%
-events_df.rename(
-    columns={"trial_type": "stim_color",
-             "switch": "trial_type"},
-    inplace=True)
-
+if "switch" in events_df.columns:
+    events_df.loc[:, "switch"].replace({0: "single",
+                                        9: "single",
+                                        1: "repeat",
+                                        2: "switch"},
+                                       inplace=True)
+    events_df.rename(
+        columns={"trial_type": "stim_color",
+                 "switch": "trial_type"},
+        inplace=True)
 
 #%%
 events_df.to_csv('data/test_bold/mod.tsv', sep='\t', index=False)
+
+
+#%%
+fname_template = os.path.join(
+    "data",
+    "test_bold",
+    "bids",
+    "derivatives",
+    "nibetaseries",
+    "sub-GE120012",
+    "ses-pre",
+    "func",
+    "sub-GE120012_ses-pre_task-taskswitch_space-MNI152NLin2009cAsym_desc-{cond}_correlation.tsv"
+)
+
+
+def rename_index(x):
+    res = x.split('_')
+    network_index = res.pop(1)
+    roi_index = '_'.join(res)
+
+    return network_index, roi_index
+
+
+df_dict = {}
+for cond in ["switch", "repeat", "single"]:
+    df_dict[cond] = pd.read_csv(
+        fname_template.format(cond=cond),
+        sep="\t", index_col=0)
+    df_dict[cond].index = pd.MultiIndex.from_tuples(
+        list(df_dict[cond].index.map(rename_index)))
+    df_dict[cond].columns = pd.MultiIndex.from_tuples(
+        list(df_dict[cond].columns.map(rename_index)))
+    df_dict[cond].sort_index(axis=0, inplace=True)
+    df_dict[cond].sort_index(axis=1, inplace=True)
+    df_dict[cond] = df_dict[cond].mean(level=0, axis=0).mean(level=0, axis=1)
+
+
+#%%
+sns.heatmap(df_dict['switch'] - df_dict['repeat'])
+
+#%%
+for cond in ["switch", "repeat", "single"]:
+    sns.heatmap(df_dict[cond], vmax=1.2)
+    plt.show()
+
+#%%
+df_sub = df_dict['repeat'] - df_dict['single']
+NETWORK_MAPPING = {
+    1: "VisCent",
+    2: "VisPeri",
+    3: "SomMotA",
+    4: "SomMotB",
+    5: "DorsAttnA",
+    6: "DorsAttnB",
+    7: "SalVentAttnA",
+    8: "SalVentAttnB",
+    9: "LimbicA",
+    10: "LimbicB",
+    11: "ContC",
+    12: "ContA",
+    13: "ContB",
+    14: "TempPar",
+    15: "DefaultC",
+    16: "DefaultA",
+    17: "DefaultB",
+}
+
+net_temp = "{net}.*"
+for net in NETWORK_MAPPING.values():
+    netr = net_temp.format(net=net)
+    print(net, str(np.nanmean(df_sub.filter(axis=0, regex=netr).filter(axis=1, regex=netr))))
+
+#%%

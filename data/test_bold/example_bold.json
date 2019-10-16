@@ -3,8 +3,8 @@
     "bold_file": ["/Users/jdkent/Projects/betaSeriesSimulations/data/test_bold/bids/derivatives/fmriprep/sub-GE120012/ses-pre/func/sub-GE120012_ses-pre_task-taskswitch_space-MNI152NLin2009cAsym_desc-smoothAROMAnonaggr_bold.nii.gz"],
     "correlation_targets": {
             "single": [[1, 0], [0, 1]],
-            "repeat": [[1, 0.4], [0.4, 1]],
-            "switch": [[1, 0.8], [0.8, 1]]
+            "repeat": [[1, 0.1], [0.1, 1]],
+            "switch": [[1, 0.2], [0.2, 1]]
         },
     "tr_duration": 2,
     "snr_measure": "CNR_Amp/Noise-SD",
