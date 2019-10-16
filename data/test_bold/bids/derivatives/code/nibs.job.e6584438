@@ -1,0 +1,6 @@
+/Users/jdkent/miniconda3/envs/betaseries_simulation/lib/python3.6/site-packages/bids/layout/models.py:146: UserWarning: Accessing entities as attributes is deprecated as of 0.7. Please use the .entities dictionary instead (i.e., .entities['task'] instead of .task.
+  % (attr, attr))
+/Users/jdkent/miniconda3/envs/betaseries_simulation/lib/python3.6/site-packages/bids/layout/models.py:146: UserWarning: Accessing entities as attributes is deprecated as of 0.7. Please use the .entities dictionary instead (i.e., .entities['session'] instead of .session.
+  % (attr, attr))
+/Users/jdkent/miniconda3/envs/betaseries_simulation/lib/python3.6/site-packages/bids/layout/models.py:146: UserWarning: Accessing entities as attributes is deprecated as of 0.7. Please use the .entities dictionary instead (i.e., .entities['space'] instead of .space.
+  % (attr, attr))

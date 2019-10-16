@@ -1,0 +1,22 @@
+#!/bin/bash
+
+#$ -pe smp 10
+#$ -q UI
+#$ -m bea
+#$ -M james-kent@uiowa.edu
+#$ -o /Users/jdkent/Projects/betaSeriesSimulations/data/test_bold/bids/derivatives/code/
+#$ -e /Users/jdkent/Projects/betaSeriesSimulations/data/test_bold/bids/derivatives/code/
+
+conda activate betaseries_simulation
+
+nibs -w /nfsscratch/Users/jdkent/work --nthreads 10 \
+        /Users/jdkent/Projects/betaSeriesSimulations/data/test_bold/bids \
+        fmriprep \
+        /Users/jdkent/Projects/betaSeriesSimulations/data/test_bold/bids/derivatives \
+        participant \
+     -a /Users/jdkent/Projects/betaSeriesSimulations/data/test_bold/bids/derivatives/data/Schaefer2018_400Parcels_17Networks_order_FSLMNI152_2mm.nii.gz \
+     -l /Users/jdkent/Projects/betaSeriesSimulations/data/test_bold/bids/derivatives/data/schaefer_400parcel_17net_lut.tsv \
+     --hrf-model 'glover' \
+     --smoothing-kernel 0.0 \
+     -c white_matter csf cosine00 cosine01 cosine02 cosine03 cosine04 cosine05 cosine06 cosine07 cosine08 cosine09 cosine10 cosine11 cosine12
+        

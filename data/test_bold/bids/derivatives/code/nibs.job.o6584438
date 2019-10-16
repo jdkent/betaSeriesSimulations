@@ -1,0 +1,14 @@
+191015-21:16:39,319 nipype.workflow INFO:
+	 Workflow nibetaseries_participant_wf settings: ['check', 'execution', 'logging', 'monitoring']
+191015-21:16:44,570 nipype.workflow INFO:
+	 Running in parallel.
+191015-21:16:44,574 nipype.workflow INFO:
+	 [MultiProc] Running 0 tasks, and 1 jobs ready. Free memory (GB): 226.34/226.34, Free processors: 10/10.
+191015-21:16:44,769 nipype.workflow INFO:
+	 [Node] Setting-up "nibetaseries_participant_wf.single_subjectGE120012_wf.betaseries_wf.betaseries_node" in "/nfsscratch/Users/jdkent/work/NiBetaSeries_work/nibetaseries_participant_wf/single_subjectGE120012_wf/betaseries_wf/ff61c7d8cf47d21808657eb65e463b470f45db9b/betaseries_node".
+191015-21:16:45,577 nipype.workflow INFO:
+	 [Node] Running "betaseries_node" ("nibetaseries.interfaces.nistats.LSSBetaSeries")
+191015-21:16:46,585 nipype.workflow INFO:
+	 [MultiProc] Running 1 tasks, and 0 jobs ready. Free memory (GB): 226.14/226.34, Free processors: 9/10.
+                     Currently running:
+                       * nibetaseries_participant_wf.single_subjectGE120012_wf.betaseries_wf.betaseries_node
