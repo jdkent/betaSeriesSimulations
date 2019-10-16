@@ -1,0 +1,14 @@
+#!/bin/bash
+
+#$ -pe smp 32
+#$ -q UI
+#$ -m bea
+#$ -M james-kent@uiowa.edu
+#$ -o /Users/jdkent/Projects/betaSeriesSimulations/batch/
+#$ -e /Users/jdkent/Projects/betaSeriesSimulations/batch/
+
+conda activate betaseries_simulation
+
+sims_beta -w /nfsscratch/Users/jdkent/work --nthreads 32 --n-simulations 1000 \
+          /Users/jdkent/Projects/betaSeriesSimulations/data/test_bold/ bold_simulation.tsv \
+          /Users/jdkent/Projects/betaSeriesSimulations/data/test_bold/example_bold.json
