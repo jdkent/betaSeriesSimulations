@@ -382,6 +382,7 @@ pp.set_xlabel("# of Participants",
 pp.set_ylabel("Power",
               fontdict={'fontsize': 15, 'fontweight': 'heavy'})
 pp.axhline(0.8, linestyle='--')
+plt.tight_layout()
 pp.figure.savefig('outputs/power_plot.svg')
 pp.figure.savefig('outputs/power_plot.png', dpi=400)
 #%%
