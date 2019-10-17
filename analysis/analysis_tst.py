@@ -7,6 +7,10 @@ import numpy as np
 from matplotlib.patches import Rectangle
 import matplotlib.pyplot as plt
 from scipy.stats import ttest_ind, ttest_1samp
+sns.set(style="ticks", rc={"lines.linewidth": 3.0})
+sns.set(font_scale=1.3)
+sns.set_style({'axes.grid': False})
+plt.style.use("analysis/gray_background.mplstyle")
 
 #%%
 df = pd.read_csv('data/bulk_simulation32.tsv', sep='\t')
@@ -66,10 +70,10 @@ for snr in snrs:
 
 #%%
 # seminar graph
+# graph 37.06 CNR
 snr = snrs[1]
-sns.set(font_scale=1.3)
-plt.style.use("dark_background")
-sns.set_style({'axes.grid': False})
+
+# sns.set_style({'axes.grid': False})
 query = ('(iti_mean == 2.0 | iti_mean == 8.0)'
          ' & (n_trials == 15 | n_trials == 60)'
          ' & (correlation_target == 0.2 | correlation_target == 0.4'
@@ -105,7 +109,8 @@ lgnd_sg = g2.axes[0, 1]
 lgnd_sg.legend(title="Estimation Method",
                loc="lower left")
 
-g2.savefig('outputs/simplified_simulation.png')
+g2.savefig('outputs/simplified_simulation.png', dpi=600)
+g2.savefig('outputs/simplified_simulation.svg')
 
 #%%
 # test the null (appears to hold up within nominal error rates)
@@ -226,7 +231,8 @@ for iti_mean, ax, n_trials in zip([2.0, 8.0, 2.0, 8.0],
     ax.text(0.25, 0.45, txtrepl, transform=ax.transAxes, fontsize=14,
             verticalalignment='center',
             horizontalalignment="left", bbox=props)
-g_hist.savefig('outputs/simplified_pwr.png')
+g_hist.savefig('outputs/simplified_pwr.png', dpi=400)
+g_hist.savefig('outputs/simplified_pwr.svg')
 
 # TEST ON REAL DATA
 ## get the events.tsv formatted correctly
@@ -317,8 +323,10 @@ cbar.set_label('Correlation Difference\n(Fisher r-z)',
 cbar.ax.tick_params(labelsize=13)
 
 ax.set_xticklabels(ax.get_xticklabels(), fontsize=13)
-ax.set_yticklabels(ax.get_yticklabels(), fontsize=13)
+ax.set_yticklabels(ax.get_yticklabels(), fontsize=9)
+plt.tight_layout()
 ax.figure.savefig("outputs/beta_series_contrast_switch-repeat.svg")
+ax.figure.savefig("outputs/beta_series_contrast_switch-repeat.png", dpi=400)
 #%%
 # get the bold simulation results
 bold_sim_file = os.path.join(
@@ -356,8 +364,6 @@ bold_pwr_df = pd.DataFrame.from_dict(bold_pwr_dict)
 bold_pwr_df.head()
 
 #%%
-sns.set(style="ticks", rc={"lines.linewidth": 3.0})
-plt.style.use("dark_background")
 pp = sns.lineplot(
     x='participants',
     y='power',
@@ -377,4 +383,5 @@ pp.set_ylabel("Power",
               fontdict={'fontsize': 15, 'fontweight': 'heavy'})
 pp.axhline(0.8, linestyle='--')
 pp.figure.savefig('outputs/power_plot.svg')
+pp.figure.savefig('outputs/power_plot.png', dpi=400)
 #%%
