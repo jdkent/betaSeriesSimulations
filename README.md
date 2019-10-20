@@ -1,5 +1,11 @@
 # beta series simulations
 
+## Links to relevent Resources
+
+- [NiBetaSeries](https://nibetaseries.readthedocs.io/en/stable/)
+- [The 2019 SFN Poster](https://doi.org/10.6084/m9.figshare.10005125.v1)
+
+## What's in this repository
 Welcome to the chaos!
 Here's the tour
 
