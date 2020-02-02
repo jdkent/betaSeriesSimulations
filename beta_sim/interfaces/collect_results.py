@@ -10,7 +10,7 @@ BETA_FILENAME = re.compile(
 
 
 class ResultsEntryInputSpec(BaseInterfaceInputSpec):
-    correlation_targets = traits.Dict()
+    correlation_targets = traits.Float()
     lss_beta_series_imgs = traits.List()
     lsa_beta_series_imgs = traits.List()
     snr_measure = traits.Str()
@@ -46,6 +46,7 @@ class ResultsEntry(SimpleInterface):
             "iteration": [],
             "iti_mean": [],
             "n_trials": [],
+            "trial_type": [],
         }
         signal_magnitude = self.inputs.signal_magnitude[0]
         for method, nii_files in method_dict.items():
@@ -59,14 +60,14 @@ class ResultsEntry(SimpleInterface):
                 data = data.squeeze()
 
                 corr_obs = np.corrcoef(data)
-                corr_tgt = self.inputs.correlation_targets[trial_type]
+                corr_tgt = self.inputs.correlation_targets
 
                 idxs = np.tril_indices_from(corr_obs, k=-1)
                 # hard code for one value
                 corr_obs_flat = corr_obs[idxs][0]
-                corr_tgt_flat = corr_tgt[idxs][0]
 
-                entry_collector['correlation_target'].append(corr_tgt_flat)
+                entry_collector['trial_type'].append(trial_type)
+                entry_collector['correlation_target'].append(corr_tgt)
                 entry_collector['correlation_observed'].append(corr_obs_flat)
                 entry_collector['estimation_method'].append(method)
                 entry_collector['signal_magnitude'].append(signal_magnitude)

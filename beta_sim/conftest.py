@@ -68,11 +68,8 @@ def config_file(base_path):
 
     config_file = base_path / "config.json"
     config_dict = {
-        "correlation_targets": {
-                "c0": [[1, -0.8], [-0.8, 1]],
-                "c1": [[1, -0.6], [-0.6, 1]],
-                "c2": [[1, -0.4], [-0.4, 1]]
-            },
+        "correlation_targets": [0.2, 0.6],
+        "trial_types": ["c1", "c2"],
         "n_event_files": 20,
         "tr_duration": 2,
         "noise_dict":
@@ -115,11 +112,13 @@ def config_file_simple(base_path):
 
     config_file_s = base_path / "config_simple.json"
     config_dict = {
-        "correlation_targets": {
-                "c0": [[1, -0.8], [-0.8, 1]],
-                "c1": [[1, 0.8], [0.8, 1]],
-            },
+        "correlation_targets": [0.2, 0.6],
+        "trial_types": ["c1", "c2"],
         "n_event_files": 20,
+        "sim_estimation": 0.0,
+        "sim_detection": 0.5,
+        "sim_freq": 0.25,
+        "sim_confound": 0.25,
         "tr_duration": 2,
         "noise_dict":
             {

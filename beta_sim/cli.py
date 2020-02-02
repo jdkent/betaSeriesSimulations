@@ -73,14 +73,14 @@ def process_config(config):
     except json.JSONDecodeError:
         raise("Config File is not formatted Correctly")
 
-    trial_types = list(config_dict["correlation_targets"])
+    # trial_types = list(config_dict["correlation_targets"])
 
-    config_dict['trial_types'] = trial_types
+    # config_dict['trial_types'] = trial_types
 
-    config_dict['correlation_targets'] = {
-            tt: np.array(ct)
-            for tt, ct in config_dict['correlation_targets'].items()
-        }
+    # config_dict['correlation_targets'] = {
+    #        tt: np.array(ct)
+    #        for tt, ct in config_dict['correlation_targets'].items()
+    #    }
 
     if config_dict.get("events_file", None):
         print("events_file(s) detected, ignoring design arguments")
@@ -101,7 +101,7 @@ def process_config(config):
         )
 
         # make contrasts
-        config_dict['contrasts'] = np.eye(len(trial_types))
+        config_dict['contrasts'] = np.eye(len(config_dict['trial_types']))
 
     return config_dict
 

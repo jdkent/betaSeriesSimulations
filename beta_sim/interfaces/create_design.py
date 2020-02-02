@@ -23,6 +23,7 @@ class CreateDesignInputSpec(BaseInterfaceInputSpec):
     contrasts = traits.Either(traits.List(), traits.Array())
     design_resolution = traits.Float()
     rho = traits.Float()
+    optimize_weights = traits.List(trait=traits.Float())
 #    precomputed_events_files = traits.Either(traits.List(trait=traits.File()), None)
 
 
@@ -69,7 +70,7 @@ class CreateDesign(NeuroDesignBaseInterface, SimpleInterface):
         # find best design
         designer = optimisation(
             experiment=exp,
-            weights=[0, 0.25, 0.5, 0.25],
+            weights=self.inputs.optimize_weights,
             preruncycles=2,
             cycles=15,
             optimisation='GA'

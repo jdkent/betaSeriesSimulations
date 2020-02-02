@@ -16,7 +16,7 @@ class SimulateDataInputSpec(BaseInterfaceInputSpec):
     noise_dict = traits.Dict()
     brain_dimensions = traits.Array(shape=(3,))
     events_files = traits.List(trait=traits.File())
-    correlation_targets = traits.Dict()
+    correlation_targets = traits.Float()
     snr_measure = traits.Str(
         desc='choose how to calculate snr: '
              'SFNR, CNR_Amp/Noise-SD, CNR_Amp2/Noise-Var_dB, '
@@ -36,6 +36,7 @@ class SimulateDataOutputSpec(TraitedSpec):
     events_file = File(exists=True)
     iti_mean = traits.Float()
     n_trials = traits.Int()
+    correlation_targets = traits.Float()
 
 
 class SimulateData(BrainiakBaseInterface, SimpleInterface):
@@ -148,6 +149,7 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
         # final calculation
         brain = signal_scaled + noise
 
+        self._results['correlation_targets'] = self.inputs.correlation_targets
         self._results['simulated_data'] = brain
         self._results['iteration'] = self.inputs.iteration
         self._results['signal_magnitude'] = self.inputs.signal_magnitude
@@ -158,13 +160,19 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
         return runtime
 
 
-def _gen_beta_weights(events, corr_mats, brain_dimensions):
+def _gen_beta_weights(events, target_corr, brain_dimensions):
     import numpy as np
     from scipy.optimize import minimize
     import time
 
     trial_types_uniq = events['trial_type'].unique()
     trial_types_num = trial_types_uniq.shape[0]
+    corr_mat = np.ones((trial_types_num, trial_types_num))
+    # fill lower off diagnal with correlation target
+    corr_mat[np.tril_indices(trial_types_num, k=-1)] = target_corr
+    # fill upper off diagnal with correlation target
+    corr_mat[np.triu_indices(trial_types_num, k=1)] = target_corr
+    corr_mats = {tt: corr_mat for tt in trial_types_uniq}
 
     if trial_types_num != len(corr_mats.values()):
         raise ValueError("must be the same number of correlation matrices "

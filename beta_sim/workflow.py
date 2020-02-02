@@ -12,7 +12,7 @@ from nibetaseries.interfaces.nistats import LSABetaSeries, LSSBetaSeries
 
 # replace all inputs with config_json
 def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
-
+    n_simulations = int(n_simulations // len(config['trial_types']))
     wf = pe.Workflow(name=name)
     input_node = pe.Node(
         niu.IdentityInterface(['out_dir', 'fname']), name='input_node')
@@ -20,11 +20,18 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
     output_node = pe.Node(
         niu.IdentityInterface(['out_file']), name='output_node')
 
+    optimize_weights = [
+        config["sim_estimation"],
+        config["sim_detection"],
+        config["sim_freq"],
+        config["sim_confound"],
+    ]
     create_design = pe.Node(
         CreateDesign(tr_duration=config['tr_duration'],
                      trial_types=len(config.get('trial_types', None)),
                      contrasts=config.get('contrasts', []),
-                     n_event_files=config.get("n_event_files", None)),
+                     n_event_files=config.get("n_event_files", None),
+                     optimize_weights=optimize_weights),
         name="create_design",
         iterables=[('trials', config.get('trials', None)),
                    ('iti_min', config.get('iti_min', None)),
@@ -52,13 +59,13 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
     )
 
     result_entry = pe.MapNode(
-        ResultsEntry(correlation_targets=config['correlation_targets'],
-                     snr_measure=config['snr_measure']),
+        ResultsEntry(snr_measure=config['snr_measure']),
         iterfield=['iti_mean',
                    'n_trials',
                    'lss_beta_series_imgs',
                    'lsa_beta_series_imgs',
                    'iteration',
+                   'correlation_targets',
                    'signal_magnitude'],
         name="results_entry")
 
@@ -83,7 +90,8 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
         design_node = read_design
 
         sim_data_iterables = [
-            ('iteration', list(range(n_simulations)))]
+            ('iteration', list(range(n_simulations))),
+            ('correlation_targets', config['correlation_targets'])]
         sim_data_iterfield = [
             'events_files',
             'total_duration',
@@ -98,6 +106,7 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
             'lsa_beta_series_imgs',
             'iteration',
             'signal_magnitude',
+            'correlation_targets',
         ]
 
     # you wish to create an events file
@@ -105,7 +114,8 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
         design_node = create_design
         sim_data_iterables = [
             ('iteration', list(range(n_simulations))),
-            ('signal_magnitude', config['signal_magnitude'])]
+            ('signal_magnitude', config['signal_magnitude']),
+            ('correlation_targets', config['correlation_targets'])]
         sim_data_iterfield = [
             'events_files',
             'total_duration',
@@ -119,6 +129,7 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
             'lsa_beta_series_imgs',
             'iteration',
             'signal_magnitude',
+            'correlation_targets',
         ]
 
     combine_node = pe.JoinNode(
@@ -138,7 +149,6 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
     simulate_data = pe.MapNode(
         SimulateData(tr_duration=config['tr_duration'],
                      brain_dimensions=config['brain_dimensions'],
-                     correlation_targets=config['correlation_targets'],
                      snr_measure=config['snr_measure'],
                      **sim_data_kwargs),
         iterfield=sim_data_iterfield,
@@ -225,7 +235,8 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
             [('beta_maps', 'lsa_beta_series_imgs')]),
         (simulate_data, result_entry,
             [('signal_magnitude', 'signal_magnitude'),
-             ('iteration', 'iteration')]),
+             ('iteration', 'iteration'),
+             ('correlation_targets', 'correlation_targets')]),
         (result_entry, combine_entries,
             [('result_entry', 'entries')]),
         (input_node, combine_entries,
