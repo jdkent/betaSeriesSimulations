@@ -23,7 +23,8 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
     create_design = pe.Node(
         CreateDesign(tr_duration=config['tr_duration'],
                      trial_types=len(config.get('trial_types', None)),
-                     contrasts=config.get('contrasts', [])),
+                     contrasts=config.get('contrasts', []),
+                     n_event_files=config.get("n_event_files", None)),
         name="create_design",
         iterables=[('trials', config.get('trials', None)),
                    ('iti_min', config.get('iti_min', None)),
@@ -46,7 +47,7 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
     est_cnr = pe.MapNode(
         ContrastNoiseRatio(tr=config['tr_duration']),
         name="est_cnr",
-        iterfield=['events_file',
+        iterfield=['events_files',
                    'bold_file']
     )
 
@@ -84,7 +85,7 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
         sim_data_iterables = [
             ('iteration', list(range(n_simulations)))]
         sim_data_iterfield = [
-            'events_file',
+            'events_files',
             'total_duration',
             'iti_mean',
             'n_trials',
@@ -106,7 +107,7 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
             ('iteration', list(range(n_simulations))),
             ('signal_magnitude', config['signal_magnitude'])]
         sim_data_iterfield = [
-            'events_file',
+            'events_files',
             'total_duration',
             'iti_mean',
             'n_trials']
@@ -148,7 +149,7 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
     if config.get('events_file', None):
         wf.connect([
             (read_design, est_cnr,
-                [('events_file', 'events_file'),
+                [('events_files', 'events_files'),
                  ('bold_file', 'bold_file')]),
             (est_cnr, simulate_data,
                 [('cnr', 'signal_magnitude'),
@@ -157,20 +158,20 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
 
     wf.connect([
         (design_node, combine_node,
-            [('events_file', 'events_files'),
+            [('events_files', 'events_files'),
              ('total_duration', 'total_durations'),
              ('stim_duration', 'stim_durations'),
              ('n_trials', 'n_trials_list'),
              ('iti_mean', 'iti_means')]),
         (combine_node, simulate_data,
-            [('events_files', 'events_file'),
+            [('events_files', 'events_files'),
              ('total_durations', 'total_duration'),
              ('iti_means', 'iti_mean'),
              ('n_trials_list', 'n_trials')]),
-        (combine_node, lss,
-            [('events_files', 'events_file')]),
-        (combine_node, lsa,
-            [('events_files', 'events_file')]),
+        (simulate_data, lss,
+            [('events_file', 'events_file')]),
+        (simulate_data, lsa,
+            [('events_file', 'events_file')]),
         (simulate_data, result_entry,
             [('iti_mean', 'iti_mean'),
                 ('n_trials', 'n_trials')]),

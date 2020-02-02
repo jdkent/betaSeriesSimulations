@@ -15,7 +15,7 @@ class SimulateDataInputSpec(BaseInterfaceInputSpec):
     iteration = traits.Int(desc='marking each iteration of the simulation')
     noise_dict = traits.Dict()
     brain_dimensions = traits.Array(shape=(3,))
-    events_file = File(exists=True)
+    events_files = traits.List(trait=traits.File())
     correlation_targets = traits.Dict()
     snr_measure = traits.Str(
         desc='choose how to calculate snr: '
@@ -49,8 +49,12 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
 
         # temporal resolution of design
         temp_res = 100
+
+        # determine which events file to use based on iteration.
+        events_idx = self.inputs.iteration % len(self.inputs.events_files)
+        events_file = self.inputs.events_files[events_idx]
         # assume events_file has onset, duration, and trial_type
-        events = pd.read_csv(self.inputs.events_file, sep='\t')
+        events = pd.read_csv(events_file, sep='\t')
 
         beta_weights_dict = _gen_beta_weights(
             events,
@@ -147,7 +151,7 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
         self._results['simulated_data'] = brain
         self._results['iteration'] = self.inputs.iteration
         self._results['signal_magnitude'] = self.inputs.signal_magnitude
-        self._results['events_file'] = self.inputs.events_file
+        self._results['events_file'] = events_file
         self._results['iti_mean'] = self.inputs.iti_mean
         self._results['n_trials'] = self.inputs.n_trials
 
@@ -247,7 +251,7 @@ def _gen_beta_weights(events, corr_mats, brain_dimensions):
 
 
 class ContrastNoiseRatioInputSpec(BaseInterfaceInputSpec):
-    events_file = traits.File()
+    events_files = traits.List(trait=traits.File())
     bold_file = traits.File()
     tr = traits.Float()
 
@@ -295,7 +299,7 @@ class ContrastNoiseRatio(SimpleInterface):
                                 memory=cache_dir,
                                 minimize_memory=False)
 
-        events_df = pd.read_csv(self.inputs.events_file, sep='\t')
+        events_df = pd.read_csv(self.inputs.events_files[0], sep='\t')
 
         # only care about activation versus not
         # events_df['trial_type'] = ['event'] * len(events_df.index)

@@ -10,6 +10,8 @@ class NeuroDesignBaseInterface(LibraryBaseInterface):
 
 
 class CreateDesignInputSpec(BaseInterfaceInputSpec):
+    n_event_files = traits.Int(
+        desc="number of events files to choose after optimization")
     tr_duration = traits.Float(desc="length of TR in seconds")
     trials = traits.Int(desc="number of trials per trial type")
     trial_types = traits.Int(desc="number of trial types")
@@ -21,10 +23,11 @@ class CreateDesignInputSpec(BaseInterfaceInputSpec):
     contrasts = traits.Either(traits.List(), traits.Array())
     design_resolution = traits.Float()
     rho = traits.Float()
+#    precomputed_events_files = traits.Either(traits.List(trait=traits.File()), None)
 
 
 class CreateDesignOutputSpec(TraitedSpec):
-    events_file = traits.File()
+    events_files = traits.List(trait=traits.File())
     total_duration = traits.Int()
     stim_duration = traits.Float()
     n_trials = traits.Int()
@@ -73,26 +76,35 @@ class CreateDesign(NeuroDesignBaseInterface, SimpleInterface):
         )
 
         designer.optimise()
+        # get the max duration of all best designs
+        # as a lazy way to make sure all designs can be simulated.
+        duration = 0
 
-        events_dict = {
-            "onset": designer.bestdesign.onsets,
-            "duration": [self.inputs.stim_duration] *
-            len(designer.bestdesign.onsets),
-            # force trial_type to be a string
-            # otherwise does not play nicely with lss
-            "trial_type": ["".join(["c", str(x)])
-                           for x in designer.bestdesign.order],
-        }
-        events_df = pd.DataFrame.from_dict(events_dict)
+        events_file_list = []
+        for idx, design in enumerate(designer.designs[:self.inputs.n_event_files]):
+            events_dict = {
+                "onset": design.onsets,
+                "duration": [self.inputs.stim_duration] *
+                len(design.onsets),
+                # force trial_type to be a string
+                # otherwise does not play nicely with lss
+                "trial_type": ["".join(["c", str(x)])
+                               for x in design.order],
+            }
+            events_df = pd.DataFrame.from_dict(events_dict)
 
-        events_file = os.path.join(os.getcwd(), 'events.tsv')
+            events_file = os.path.join(os.getcwd(), 'events{}.tsv'.format(idx))
 
-        events_df.to_csv(events_file, index=False, sep='\t')
+            events_df.to_csv(events_file, index=False, sep='\t')
 
-        self._results['events_file'] = events_file
+            events_file_list.append(events_file)
+
+            if design.experiment.duration > duration:
+                duration = design.experiment.duration
+
+        self._results['events_files'] = events_file_list
 
         # make sure duration is a multiple of the tr
-        duration = designer.bestdesign.experiment.duration
         mod = duration % self.inputs.tr_duration
         duration += mod
         self._results['total_duration'] = int(duration)
@@ -113,7 +125,7 @@ class ReadDesignInputSpec(BaseInterfaceInputSpec):
 
 
 class ReadDesignOutputSpec(TraitedSpec):
-    events_file = traits.File()
+    events_files = traits.List(trait=traits.File())
     total_duration = traits.Int()
     stim_duration = traits.Float()
     n_trials = traits.Int()
@@ -157,7 +169,7 @@ class ReadDesign(SimpleInterface):
 
         self._results['tr'] = int(tr)
 
-        self._results['events_file'] = self.inputs.events_file
+        self._results['events_files'] = [self.inputs.events_file]
 
         self._results['bold_file'] = self.inputs.bold_file
 
