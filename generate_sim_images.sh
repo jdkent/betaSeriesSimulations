@@ -4,9 +4,9 @@ set -e
 
 # Generate Dockerfile.
 generate_docker() {
-  docker run --rm kaczmarj/neurodocker:0.5.0 generate docker \
+  docker run --rm kaczmarj/neurodocker:master generate docker \
     --user=root \
-    --base=codercom/code-server:2.1472-vsc1.38.1 \
+    --base=codercom/code-server:2.1698 \
     --pkg-manager=apt \
     --user=coder \
     --workdir="/home/coder" \
@@ -16,7 +16,7 @@ generate_docker() {
                 yaml_file='/home/coder/project/environment.yml' \
     --run "conda init" \
     --run 'code-server --install-extension eamodio.gitlens && code-server --install-extension ms-python.python' \
-    --entrypoint 'code-server /home/coder/project'
+    --entrypoint 'code-server --auth none /home/coder/project'
 
 }
 
