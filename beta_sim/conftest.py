@@ -73,6 +73,7 @@ def config_file(base_path):
                 "c1": [[1, -0.6], [-0.6, 1]],
                 "c2": [[1, -0.4], [-0.4, 1]]
             },
+        "n_event_files": 20,
         "tr_duration": 2,
         "noise_dict":
             {
@@ -118,6 +119,7 @@ def config_file_simple(base_path):
                 "c0": [[1, -0.8], [-0.8, 1]],
                 "c1": [[1, 0.8], [0.8, 1]],
             },
+        "n_event_files": 20,
         "tr_duration": 2,
         "noise_dict":
             {
