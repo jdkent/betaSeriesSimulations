@@ -375,6 +375,10 @@ def _check_corr(corr_mat_obs, corr_mat_gnd):
 
 
 def _calc_cnr(brain, events_df, tr, cnr_ref):
+    """
+    applies a correction to the cnr using the same method to calculate cnr
+    as I would use with real data.
+    """
     import tempfile
     from nistats.first_level_model import FirstLevelModel
     import nibabel as nib
@@ -397,11 +401,10 @@ def _calc_cnr(brain, events_df, tr, cnr_ref):
     model.fit(brain_img, events_df)
     regressors = model.design_matrices_[0].columns
     regressors_of_interest = [
-        i for i, r in enumerate(regressors) if '_delay_3' in r]
-    contrast_of_interest = np.zeros(len(regressors))
-    contrast_val = 1 / len(regressors_of_interest)
-    contrast_of_interest[regressors_of_interest] = contrast_val
-    # collect all residuals (do not know what I'm doing here)
+        r for r in regressors if '_delay_3' in r]
+    contrast_of_interest = np.array([[1 if c == trial_type else 0 for c in regressors]
+                                     for trial_type in regressors_of_interest])
+    # collect all residuals
     all_residual_std = [np.std(res.wresid[:, x])
                         for res in model.results_[0].values()
                         for x in range(res.wresid.shape[1])]
@@ -413,11 +416,11 @@ def _calc_cnr(brain, events_df, tr, cnr_ref):
         contrast_of_interest,
         output_type='effect_size')
     # take absolute value and mean
-    # ave_amplitude = np.mean(np.abs(activation_values))
+    ave_amplitude = np.mean(np.abs(activation_raw.get_fdata()))
     # max amplitude instead
-    max_amplitude = np.abs(activation_raw.get_data()).max()
-    cnr = max_amplitude / noise_std
-    # having a multiplier fix appears to correct the signal enough
+    # max_amplitude = np.abs(activation_raw.get_data()).max()
+    cnr = ave_amplitude / noise_std
+    # having a multiplier appears to correct the cnr
     correction = cnr_ref * (cnr_ref / cnr)
 
     return [correction]
