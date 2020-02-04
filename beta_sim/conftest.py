@@ -160,11 +160,13 @@ def config_file_manual(base_path):
 
     config_file_man = base_path / "config_manual.json"
     config_dict = {
-        "correlation_targets": {
-                "congruent": [[1, 0.8], [0.8, 1]],
-                "neutral": [[1, 0.8], [0.8, 1]],
-                "incongruent": [[1, 0.8], [0.8, 1]],
-            },
+        "correlation_targets": [0.8],
+        "trial_types": ["congruent", "incongruent", "neutral"],
+        "n_event_files": 20,
+        "sim_estimation": 0.0,
+        "sim_detection": 0.5,
+        "sim_freq": 0.25,
+        "sim_confound": 0.25,
         "tr_duration": 1.5,
         "noise_dict":
             {
