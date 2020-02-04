@@ -1,6 +1,7 @@
 # This file demonstrates a workflow-generating function,
 # a particular convention for generating
 # nipype workflows. Others are possible.
+from itertools import product
 
 from nipype.pipeline import engine as pe
 from nipype.interfaces import utility as niu
@@ -13,10 +14,31 @@ from nibetaseries.interfaces.nistats import LSABetaSeries, LSSBetaSeries
 # replace all inputs with config_json
 def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
     n_simulations = int(n_simulations // len(config['trial_types']))
+    itersource_keys = list(product(
+        config.get('trials', None),
+        config.get('iti_min', None),
+        config.get('iti_mean', None),
+        config.get('iti_max', None),
+        config.get('iti_model'),
+        config.get('stim_duration', None),
+        config.get('design_resolution', None),
+        config.get('rho', None),
+        ))
     wf = pe.Workflow(name=name)
     input_node = pe.Node(
-        niu.IdentityInterface(['out_dir', 'fname']), name='input_node')
-
+        niu.IdentityInterface(['out_dir', 'fname', 'trials',
+                               'iti_min', 'iti_mean', 'iti_max',
+                               'iti_model', 'stim_duration',
+                               'design_resolution', 'rho']), name='input_node')
+    input_node.iterables = [
+        ('trials', config.get('trials', None)),
+        ('iti_min', config.get('iti_min', None)),
+        ('iti_mean', config.get('iti_mean', None)),
+        ('iti_max', config.get('iti_max', None)),
+        ('iti_model', config.get('iti_model')),
+        ('stim_duration', config.get('stim_duration', None)),
+        ('design_resolution', config.get('design_resolution', None)),
+        ('rho', config.get('rho', None))]
     output_node = pe.Node(
         niu.IdentityInterface(['out_file']), name='output_node')
 
@@ -33,14 +55,6 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
                      n_event_files=config.get("n_event_files", None),
                      optimize_weights=optimize_weights),
         name="create_design",
-        iterables=[('trials', config.get('trials', None)),
-                   ('iti_min', config.get('iti_min', None)),
-                   ('iti_mean', config.get('iti_mean', None)),
-                   ('iti_max', config.get('iti_max', None)),
-                   ('iti_model', config.get('iti_model')),
-                   ('stim_duration', config.get('stim_duration', None)),
-                   ('design_resolution', config.get('design_resolution', None)),
-                   ('rho', config.get('rho', None))],
     )
 
     read_design = pe.Node(
@@ -51,115 +65,75 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
         synchronize=True,
     )
 
-    est_cnr = pe.MapNode(
+    est_cnr = pe.Node(
         ContrastNoiseRatio(tr=config['tr_duration']),
         name="est_cnr",
-        iterfield=['events_files',
-                   'bold_file']
     )
 
-    result_entry = pe.MapNode(
+    result_entry = pe.Node(
         ResultsEntry(snr_measure=config['snr_measure']),
-        iterfield=['iti_mean',
-                   'n_trials',
-                   'lss_beta_series_imgs',
-                   'lsa_beta_series_imgs',
-                   'iteration',
-                   'correlation_targets',
-                   'signal_magnitude'],
         name="results_entry")
 
-    lss = pe.MapNode(LSSBetaSeries(high_pass=0.0078125,
-                                   hrf_model='glover',
-                                   smoothing_kernel=None),
-                     iterfield=['events_file',
-                                'mask_file',
-                                'bold_file'],
-                     name="lss")
+    lss = pe.Node(LSSBetaSeries(high_pass=0.0078125,
+                                hrf_model='glover',
+                                smoothing_kernel=None),
+                  name="lss")
 
-    lsa = pe.MapNode(LSABetaSeries(high_pass=0.0078125,
-                                   hrf_model='glover',
-                                   smoothing_kernel=None),
-                     iterfield=['events_file',
-                                'mask_file',
-                                'bold_file'],
-                     name="lsa")
+    lsa = pe.Node(LSABetaSeries(high_pass=0.0078125,
+                                hrf_model='glover',
+                                smoothing_kernel=None),
+                  name="lsa")
 
     # you passed in your own events file
     if config.get('events_file', None):
         design_node = read_design
 
         sim_data_iterables = [
-            ('iteration', list(range(n_simulations))),
-            ('correlation_targets', config['correlation_targets'])]
-        sim_data_iterfield = [
-            'events_files',
-            'total_duration',
-            'iti_mean',
-            'n_trials',
-            'noise_dict']
+            ('iteration', {k: list(range(n_simulations)) for k in itersource_keys}),
+            ('signal_magnitude', {k: config['signal_magnitude'] for k in itersource_keys})]
         sim_data_kwargs = {}
-        result_entry.iterfield = [
-            'iti_mean',
-            'n_trials',
-            'lss_beta_series_imgs',
-            'lsa_beta_series_imgs',
-            'iteration',
-            'signal_magnitude',
-            'correlation_targets',
-        ]
 
     # you wish to create an events file
     else:
         design_node = create_design
         sim_data_iterables = [
-            ('iteration', list(range(n_simulations))),
-            ('signal_magnitude', config['signal_magnitude']),
-            ('correlation_targets', config['correlation_targets'])]
-        sim_data_iterfield = [
-            'events_files',
-            'total_duration',
-            'iti_mean',
-            'n_trials']
+            ('iteration', {k: list(range(n_simulations)) for k in itersource_keys}),
+            ('signal_magnitude', {k: config['signal_magnitude'] for k in itersource_keys}),
+            ('correlation_targets', {k: config['correlation_targets'] for k in itersource_keys})]
         sim_data_kwargs = {'noise_dict': config['noise_dict']}
-        result_entry.iterfield = [
+
+    pre_sim_node = pe.Node(
+        niu.IdentityInterface(['events_files', 'total_duration',
+                               'iti_mean', 'n_trials', 'iteration',
+                               'signal_magnitude', 'correlation_targets']),
+        itersource=('input_node', [
+            'trials',
+            'iti_min',
             'iti_mean',
-            'n_trials',
-            'lss_beta_series_imgs',
-            'lsa_beta_series_imgs',
-            'iteration',
-            'signal_magnitude',
-            'correlation_targets',
-        ]
-
-    combine_node = pe.JoinNode(
-        niu.IdentityInterface(['events_files',
-                               'total_durations',
-                               'stim_durations',
-                               'n_trials_list',
-                               'iti_means']),
-        joinsource=design_node,
-        joinfield=['events_files',
-                   'total_durations',
-                   'stim_durations',
-                   'n_trials_list',
-                   'iti_means'],
-        name="combine_node")
-
-    simulate_data = pe.MapNode(
+            'iti_max',
+            'iti_model',
+            'stim_duration',
+            'design_resolution',
+            'rho',
+             ]),
+        iterables=[
+            ('iteration', {k: list(range(n_simulations)) for k in itersource_keys}),
+            ('signal_magnitude', {k: config['signal_magnitude'] for k in itersource_keys}),
+            ('correlation_targets', {k: config['correlation_targets'] for k in itersource_keys})],
+        name='pre_sim_node',
+    )
+    simulate_data = pe.Node(
         SimulateData(tr_duration=config['tr_duration'],
                      brain_dimensions=config['brain_dimensions'],
                      snr_measure=config['snr_measure'],
                      **sim_data_kwargs),
-        iterfield=sim_data_iterfield,
-        iterables=sim_data_iterables,
         name="simulate_data",
     )
 
     if config.get('events_file', None):
         wf.connect([
             (read_design, est_cnr,
-                [('events_files', 'events_files'),
+                [('events_file', 'events_file'),
                  ('bold_file', 'bold_file')]),
             (est_cnr, simulate_data,
                 [('cnr', 'signal_magnitude'),
@@ -167,17 +141,28 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
         ])
 
     wf.connect([
-        (design_node, combine_node,
+        (input_node, design_node,
+            [('trials', 'trials'),
+             ('iti_min', 'iti_min'),
+             ('iti_mean', 'iti_mean'),
+             ('iti_max', 'iti_max'),
+             ('iti_model', 'iti_model'),
+             ('stim_duration', 'stim_duration'),
+             ('design_resolution', 'design_resolution'),
+             ('rho', 'rho')]),
+        (design_node, pre_sim_node,
             [('events_files', 'events_files'),
-             ('total_duration', 'total_durations'),
-             ('stim_duration', 'stim_durations'),
-             ('n_trials', 'n_trials_list'),
-             ('iti_mean', 'iti_means')]),
-        (combine_node, simulate_data,
+             ('total_duration', 'total_duration'),
+             ('iti_mean', 'iti_mean'),
+             ('n_trials', 'n_trials')]),
+        (pre_sim_node, simulate_data,
             [('events_files', 'events_files'),
-             ('total_durations', 'total_duration'),
-             ('iti_means', 'iti_mean'),
-             ('n_trials_list', 'n_trials')]),
+             ('total_duration', 'total_duration'),
+             ('iti_mean', 'iti_mean'),
+             ('n_trials', 'n_trials'),
+             ('iteration', 'iteration'),
+             ('signal_magnitude', 'signal_magnitude'),
+             ('correlation_targets', 'correlation_targets')]),
         (simulate_data, lss,
             [('events_file', 'events_file')]),
         (simulate_data, lsa,
@@ -187,10 +172,9 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
                 ('n_trials', 'n_trials')]),
     ])
 
-    make_mask_file = pe.MapNode(
+    make_mask_file = pe.Node(
         niu.Function(function=_make_mask_file,
                      output_names=["outpath"]),
-        iterfield=['data'],
         name='make_mask')
 
     make_metadata_dict = pe.Node(
@@ -200,15 +184,20 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
 
     make_metadata_dict.inputs.tr_duration = config['tr_duration']
 
-    make_bold_file = pe.MapNode(
+    make_bold_file = pe.Node(
         niu.Function(function=_make_bold_file,
                      output_names=["outpath"]),
-        iterfield=['data'],
         name='make_bold_file')
+
+    gather_sim_node = pe.JoinNode(
+        niu.IdentityInterface(['sim_outputs']),
+        joinsource='pre_sim_node',
+        joinfield='sim_outputs',
+        name='gather_sim_node')
 
     combine_entries = pe.JoinNode(
         CombineEntries(),
-        joinsource='simulate_data',
+        joinsource='input_node',
         joinfield='entries',
         name="combine_entries")
 
@@ -237,11 +226,13 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
             [('signal_magnitude', 'signal_magnitude'),
              ('iteration', 'iteration'),
              ('correlation_targets', 'correlation_targets')]),
-        (result_entry, combine_entries,
-            [('result_entry', 'entries')]),
+        (result_entry, gather_sim_node,
+            [('result_entry', 'sim_outputs')]),
         (input_node, combine_entries,
             [('out_dir', 'output_directory'),
              ('fname', 'fname')]),
+        (gather_sim_node, combine_entries,
+            [('sim_outputs', 'entries')]),
         (combine_entries, output_node,
             [('report', 'out_file')]),
         ])
