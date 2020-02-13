@@ -39,11 +39,23 @@ def test_ContrastNoiseRatio(example_data_dir):
         "func",
         "sub-001_task-stroop_space-MNI152NLin2009cAsym_desc-preproc_bold.nii.gz")
 
+    confounds_file = os.path.join(
+        example_data_dir,
+        "ds000164",
+        "derivatives",
+        "fmriprep",
+        "sub-001",
+        "func",
+        "sub-001_task-stroop_desc-confounds_regressors.tsv",
+    )
+
     tr = 2
 
     calc_cnr = ContrastNoiseRatio(
-        events_file=events_file,
+        events_files=[events_file],
         bold_file=bold_file,
+        confounds_file=confounds_file,
+        selected_confounds=["CSF", "WhiteMatter"],
         tr=tr)
 
     assert calc_cnr.run()

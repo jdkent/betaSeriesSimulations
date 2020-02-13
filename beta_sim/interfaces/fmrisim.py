@@ -261,6 +261,10 @@ def _gen_beta_weights(events, target_corr, brain_dimensions):
 class ContrastNoiseRatioInputSpec(BaseInterfaceInputSpec):
     events_files = traits.List(trait=traits.File())
     bold_file = traits.File()
+    confounds_file = traits.Either(None, File(exists=True),
+                                   desc="File that contains all usable confounds")
+    selected_confounds = traits.Either(None, traits.List(),
+                                       desc="Column names of the regressors to include")
     tr = traits.Float()
 
 
@@ -297,6 +301,13 @@ class ContrastNoiseRatio(SimpleInterface):
 
         cache_dir = tempfile.mkdtemp()
 
+        # get the confounds:
+        if self.inputs.confounds_file and self.inputs.selected_confounds:
+            confounds = _select_confounds(self.inputs.confounds_file,
+                                          self.inputs.selected_confounds)
+        else:
+            confounds = None
+
         model = FirstLevelModel(t_r=self.inputs.tr,
                                 noise_model='ar1',
                                 standardize=False,
@@ -312,7 +323,7 @@ class ContrastNoiseRatio(SimpleInterface):
         # only care about activation versus not
         # events_df['trial_type'] = ['event'] * len(events_df.index)
 
-        model.fit(bold_img, events_df)
+        model.fit(bold_img, events_df, confounds=confounds)
         regressors = model.design_matrices_[0].columns
         regressors_of_interest = [
             r for r in regressors if '_delay_3' in r]
@@ -323,7 +334,7 @@ class ContrastNoiseRatio(SimpleInterface):
                             for res in model.results_[0].values()
                             for x in range(res.wresid.shape[1])]
 
-        # assume noise is average of all the residuals
+        # assume noise is average of all the residual standard deviations
         noise_std = np.mean(all_residual_std)
         # get the activation value at three scans post onset
         # (i.e., with a tr of 2, this will be 6 seconds)
@@ -337,7 +348,7 @@ class ContrastNoiseRatio(SimpleInterface):
 
         threshold_map, threshold = map_threshold(
             activation_zscore,
-            level=.05,
+            alpha=.001,
             height_control='fpr')
 
         activation_mask = threshold_map.get_data()
@@ -423,3 +434,45 @@ def _calc_cnr(brain, events_df, tr, cnr_ref):
     correction = cnr_ref * (cnr_ref / cnr)
 
     return [correction]
+
+
+def _select_confounds(confounds_file, selected_confounds):
+    """Process and return selected confounds from the confounds file
+    Parameters
+    ----------
+    confounds_file : str
+        File that contains all usable confounds
+    selected_confounds : list
+        List containing all desired confounds.
+        confounds can be listed as regular expressions (e.g., "motion_outlier.*")
+    Returns
+    -------
+    desired_confounds : DataFrame
+        contains all desired (processed) confounds.
+    """
+    import pandas as pd
+    import numpy as np
+    import re
+
+    confounds_df = pd.read_csv(confounds_file, sep='\t', na_values='n/a')
+    # regular expression to capture confounds specified at the command line
+    confound_expr = re.compile(r"|".join(selected_confounds))
+    expanded_confounds = list(filter(confound_expr.fullmatch, confounds_df.columns))
+    imputables = ('framewise_displacement', 'std_dvars', 'dvars', '.*derivative1.*')
+
+    # regular expression to capture all imputable confounds
+    impute_expr = re.compile(r"|".join(imputables))
+    expanded_imputables = list(filter(impute_expr.fullmatch, expanded_confounds))
+    for imputable in expanded_imputables:
+        vals = confounds_df[imputable].values
+        if not np.isnan(vals[0]):
+            continue
+        # Impute the mean non-zero, non-NaN value
+        confounds_df[imputable][0] = np.nanmean(vals[vals != 0])
+
+    desired_confounds = confounds_df[expanded_confounds]
+    # check to see if there are any remaining nans
+    if desired_confounds.isna().values.any():
+        msg = "The selected confounds contain nans: {conf}".format(conf=expanded_confounds)
+        raise ValueError(msg)
+    return desired_confounds
