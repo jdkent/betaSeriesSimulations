@@ -28,7 +28,7 @@ def main():
             'plugin': 'MultiProc',
             'plugin_args': {
                 'raise_insufficient': False,
-                'maxtasksperchild': 1,
+                'maxtasksperchild': 10,
             }
         }
 
