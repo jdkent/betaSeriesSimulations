@@ -315,10 +315,9 @@ class ContrastNoiseRatio(SimpleInterface):
         model.fit(bold_img, events_df)
         regressors = model.design_matrices_[0].columns
         regressors_of_interest = [
-            i for i, r in enumerate(regressors) if '_delay_3' in r]
-        contrast_of_interest = np.zeros(len(regressors))
-        contrast_val = 1 / len(regressors_of_interest)
-        contrast_of_interest[regressors_of_interest] = contrast_val
+            r for r in regressors if '_delay_3' in r]
+        contrast_of_interest = np.array([[1 if c == trial_type else 0 for c in regressors]
+                                        for trial_type in regressors_of_interest])
         # collect all residuals (do not know what I'm doing here)
         all_residual_std = [np.std(res.wresid[:, x])
                             for res in model.results_[0].values()
