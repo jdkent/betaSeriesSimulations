@@ -327,8 +327,9 @@ class ContrastNoiseRatio(SimpleInterface):
         regressors = model.design_matrices_[0].columns
         regressors_of_interest = [
             r for r in regressors if '_delay_3' in r]
-        contrast_of_interest = np.array([[1 if c == trial_type else 0 for c in regressors]
-                                        for trial_type in regressors_of_interest])
+        num_regressors = len(regressors_of_interest)
+        contrast_of_interest = np.array([1 / num_regressors if c in regressors_of_interest else 0
+                                         for c in regressors])
         # collect all residuals (do not know what I'm doing here)
         all_residual_std = [np.std(res.wresid[:, x])
                             for res in model.results_[0].values()
@@ -412,8 +413,9 @@ def _calc_cnr(brain, events_df, tr, cnr_ref):
     regressors = model.design_matrices_[0].columns
     regressors_of_interest = [
         r for r in regressors if '_delay_3' in r]
-    contrast_of_interest = np.array([[1 if c == trial_type else 0 for c in regressors]
-                                     for trial_type in regressors_of_interest])
+    num_regressors = len(regressors_of_interest)
+    contrast_of_interest = np.array([1 / num_regressors if c in regressors_of_interest else 0
+                                     for c in regressors])
     # collect all residuals
     all_residual_std = [np.std(res.wresid[:, x])
                         for res in model.results_[0].values()
