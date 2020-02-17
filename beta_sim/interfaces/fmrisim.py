@@ -349,7 +349,7 @@ class ContrastNoiseRatio(SimpleInterface):
 
         threshold_map, threshold = map_threshold(
             activation_zscore,
-            alpha=.001,
+            alpha=.005,
             height_control='fpr')
 
         activation_mask = threshold_map.get_data()
