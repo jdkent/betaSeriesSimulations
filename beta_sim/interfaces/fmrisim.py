@@ -360,9 +360,10 @@ class ContrastNoiseRatio(SimpleInterface):
 
         # take absolute value and mean
         # ave_amplitude = np.mean(np.abs(activation_values))
-        # max amplitude instead
-        max_amplitude = np.abs(activation_values).max()
-        cnr = max_amplitude / noise_std
+        # use the a percentile of activation
+        perc = 90
+        amplitude = np.percentile(np.abs(activation_values), perc)
+        cnr = amplitude / noise_std
 
         self._results['cnr'] = cnr
         self._results['noise_dict'] = noise_dict
@@ -429,8 +430,7 @@ def _calc_cnr(brain, events_df, tr, cnr_ref):
         output_type='effect_size')
     # take absolute value and mean
     ave_amplitude = np.mean(np.abs(activation_raw.get_fdata()))
-    # max amplitude instead
-    # max_amplitude = np.abs(activation_raw.get_data()).max()
+    # use the average amplitude for simulated data
     cnr = ave_amplitude / noise_std
     # having a multiplier appears to correct the cnr
     correction = cnr_ref * (cnr_ref / cnr)
