@@ -167,11 +167,12 @@ def _gen_beta_weights(events, target_corr, brain_dimensions):
 
     trial_types_uniq = events['trial_type'].unique()
     trial_types_num = trial_types_uniq.shape[0]
-    corr_mat = np.ones((trial_types_num, trial_types_num))
+    n_voxels = np.prod(brain_dimensions)
+    corr_mat = np.ones((n_voxels, n_voxels))
     # fill lower off diagnal with correlation target
-    corr_mat[np.tril_indices(trial_types_num, k=-1)] = target_corr
+    corr_mat[np.tril_indices(n_voxels, k=-1)] = target_corr
     # fill upper off diagnal with correlation target
-    corr_mat[np.triu_indices(trial_types_num, k=1)] = target_corr
+    corr_mat[np.triu_indices(n_voxels, k=1)] = target_corr
     corr_mats = {tt: corr_mat for tt in trial_types_uniq}
 
     if trial_types_num != len(corr_mats.values()):
