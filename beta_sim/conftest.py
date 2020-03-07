@@ -97,7 +97,8 @@ def config_file(base_path):
         "stim_duration": [0.2],
         "design_resolution": [0.1],
         "rho": [0.5],
-        "brain_dimensions": [1, 1, 2]
+        "brain_dimensions": [1, 1, 2],
+        "trial_standard_deviation": [0.5, 4.0],
     }
 
     with open(config_file, 'w') as cf:
@@ -145,7 +146,8 @@ def config_file_simple(base_path):
         "stim_duration": [0.2],
         "design_resolution": [0.1],
         "rho": [0.5],
-        "brain_dimensions": [1, 1, 2]
+        "brain_dimensions": [1, 1, 2],
+        "trial_standard_deviation": [0.5, 4.0],
     }
 
     with open(config_file_s, 'w') as cf:
@@ -193,7 +195,8 @@ def config_file_manual(base_path):
         "stim_duration": [0.2],
         "design_resolution": [0.1],
         "rho": [0.5],
-        "brain_dimensions": [1, 1, 2]
+        "brain_dimensions": [1, 1, 2],
+        "trial_standard_deviation": [0.5, 4.0],
     }
 
     with open(config_file_man, 'w') as cf:
