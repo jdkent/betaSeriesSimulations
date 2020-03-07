@@ -11,11 +11,13 @@ BETA_FILENAME = re.compile(
 
 class ResultsEntryInputSpec(BaseInterfaceInputSpec):
     correlation_targets = traits.Float()
-    lss_beta_series_imgs = traits.List()
-    lsa_beta_series_imgs = traits.List()
+    trial_standard_deviation = traits.Float()
+    lss_beta_series_imgs = traits.List(traits=traits.File())
+    lsa_beta_series_imgs = traits.List(traits=traits.File())
     snr_measure = traits.Str()
     signal_magnitude = traits.List()
     iteration = traits.Int()
+    trial_noise_ratio = traits.Dict()
     iti_mean = traits.Either(traits.Float(), None)
     n_trials = traits.Either(traits.Int(), None)
 
@@ -47,6 +49,7 @@ class ResultsEntry(SimpleInterface):
             "iti_mean": [],
             "n_trials": [],
             "trial_type": [],
+            "trial_noise_ratio": [],
         }
         signal_magnitude = self.inputs.signal_magnitude[0]
         for method, nii_files in method_dict.items():
@@ -66,7 +69,9 @@ class ResultsEntry(SimpleInterface):
                 # hard code for one value
                 corr_obs_flat = corr_obs[idxs][0]
 
+                trial_noise_ratio = self.inputs.trial_noise_ratio[trial_type]
                 entry_collector['trial_type'].append(trial_type)
+                entry_collector['trial_noise_ratio'].append(trial_noise_ratio)
                 entry_collector['correlation_target'].append(corr_tgt)
                 entry_collector['correlation_observed'].append(corr_obs_flat)
                 entry_collector['estimation_method'].append(method)

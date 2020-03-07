@@ -55,7 +55,7 @@ def test_man_inputs_init_beta_sim(base_path, example_data_dir,
     new_config['bold_file'] = [bold_file]
 
     wf = init_beta_sim_wf(config=new_config,
-                          n_simulations=2)
+                          n_simulations=6)
 
     wf.inputs.input_node.out_dir = str(base_path)
     wf.inputs.input_node.fname = fname
