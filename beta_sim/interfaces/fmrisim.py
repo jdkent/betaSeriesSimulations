@@ -291,6 +291,7 @@ class ContrastNoiseRatioInputSpec(BaseInterfaceInputSpec):
                                    desc="File that contains all usable confounds")
     selected_confounds = traits.Either(None, traits.List(),
                                        desc="Column names of the regressors to include")
+    method = traits.Enum("Kent", "Welvaert", desc="method to Calculate CNR")
     tr = traits.Float()
 
 
@@ -385,12 +386,23 @@ class ContrastNoiseRatio(SimpleInterface):
         # get all significant activation values
         activation_values = activation_raw.get_data()[activation_mask]
 
-        # take absolute value and mean
-        # ave_amplitude = np.mean(np.abs(activation_values))
-        # use the a percentile of activation
-        perc = 90
-        amplitude = np.percentile(np.abs(activation_values), perc)
-        cnr = amplitude / noise_std
+        if self.inputs.method == "Kent":
+            # take absolute value and mean
+            # ave_amplitude = np.mean(np.abs(activation_values))
+            # use the a percentile of activation
+            perc = 90
+            amplitude = np.percentile(np.abs(activation_values), perc)
+            cnr = amplitude / noise_std
+        elif self.inputs.method == "Welvaert":
+            perc = 90
+            # calc cnr similar to 10.1371/journal.pone.0077089
+            signal = bold_img.get_fdata()[activation_mask].mean(axis=0)
+            noise = bold_img.get_fdata()[activation_mask] - bold_img.get_fdata()[activation_mask].mean(axis=0)
+
+            cnr = np.percentile(signal, perc) / noise.std()
+            noise_std = noise.std()
+        else:
+            raise ValueError("Must select either Kent or Welvaert for CNR")
 
         self._results['cnr'] = cnr
         self._results['noise_std'] = noise_std
