@@ -27,6 +27,8 @@ class SimulateDataInputSpec(BaseInterfaceInputSpec):
     tr_duration = traits.Float(desc="length of TR in seconds")
     iti_mean = traits.Float()
     n_trials = traits.Int()
+    correction = traits.Bool(desc="use the 'real data' method to detect cnr")
+    trial_standard_deviation = traits.Float(desc="Standard Deviation of Trial Betas")
 
 
 class SimulateDataOutputSpec(TraitedSpec):
@@ -37,6 +39,8 @@ class SimulateDataOutputSpec(TraitedSpec):
     iti_mean = traits.Float()
     n_trials = traits.Int()
     correlation_targets = traits.Float()
+    trial_standard_deviation = traits.Float()
+    trial_noise_ratio = traits.Dict()
 
 
 class SimulateData(BrainiakBaseInterface, SimpleInterface):
@@ -61,6 +65,7 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
             events,
             self.inputs.correlation_targets,
             self.inputs.brain_dimensions,
+            trial_std=self.inputs.trial_standard_deviation,
         )
 
         trial_types_uniq = events['trial_type'].unique()
@@ -123,9 +128,12 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
             noise_dict=tmp_noise_dict
         )
 
+        # make sure noise has standard deviation of 1
+        noise_standard = noise / noise.std()
+
         tmp_signal_scaled = sim.compute_signal_change(
             signal_function=sim_brain,
-            noise_function=noise,
+            noise_function=noise_standard,
             noise_dict=tmp_noise_dict,
             magnitude=list(self.inputs.signal_magnitude),
             method=self.inputs.snr_measure
@@ -133,26 +141,42 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
 
         tmp_brain = tmp_signal_scaled + noise
 
-        corrected_signal_mag = _calc_cnr(
-            tmp_brain,
-            events,
-            self.inputs.tr_duration,
-            self.inputs.signal_magnitude)
+        if self.inputs.correction:
+            corrected_signal_mag = _calc_cnr(
+                tmp_brain,
+                events,
+                self.inputs.tr_duration,
+                self.inputs.signal_magnitude)
 
-        signal_scaled = sim.compute_signal_change(
-            signal_function=sim_brain,
-            noise_function=noise,
-            noise_dict=tmp_noise_dict,
-            magnitude=list(corrected_signal_mag),
-            method=self.inputs.snr_measure
-        )
-        # final calculation
-        brain = signal_scaled + noise
+            signal_scaled = sim.compute_signal_change(
+                signal_function=sim_brain,
+                noise_function=noise_standard,
+                noise_dict=tmp_noise_dict,
+                magnitude=list(corrected_signal_mag),
+                method=self.inputs.snr_measure
+            )
+            # final brain signal calculation
+            brain = signal_scaled + noise
+            signal_mag = corrected_signal_mag
+        else:
+            brain = tmp_brain
+            signal_mag = self.inputs.signal_magnitude
 
+        # add measure of beta variability over noise variability
+        # (if less than 1 then LSS is better)
+        # multiplying a convolved signal by a scalar is the same as multiplying
+        # the component signal (e.g., the beta weights) and then convolving it.
+        trial_noise_ratio = {
+           tt: (b.std() * signal_mag[0]) / noise_standard.std()
+           for tt, b in beta_weights_dict.items()
+        }
+
+        self._results['trial_noise_ratio'] = trial_noise_ratio
+        self._results['trial_standard_deviation'] = self.inputs.trial_standard_deviation
         self._results['correlation_targets'] = self.inputs.correlation_targets
         self._results['simulated_data'] = brain
         self._results['iteration'] = self.inputs.iteration
-        self._results['signal_magnitude'] = self.inputs.signal_magnitude
+        self._results['signal_magnitude'] = signal_mag
         self._results['events_file'] = events_file
         self._results['iti_mean'] = self.inputs.iti_mean
         self._results['n_trials'] = self.inputs.n_trials
@@ -160,7 +184,7 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
         return runtime
 
 
-def _gen_beta_weights(events, target_corr, brain_dimensions):
+def _gen_beta_weights(events, target_corr, brain_dimensions, trial_std):
     import numpy as np
     from scipy.optimize import minimize
     import time
@@ -168,18 +192,18 @@ def _gen_beta_weights(events, target_corr, brain_dimensions):
     trial_types_uniq = events['trial_type'].unique()
     trial_types_num = trial_types_uniq.shape[0]
     n_voxels = np.prod(brain_dimensions)
-    corr_mat = np.ones((n_voxels, n_voxels))
+    cov_mat = np.full((n_voxels, n_voxels), float(trial_std ** 2))
     # fill lower off diagnal with correlation target
-    corr_mat[np.tril_indices(n_voxels, k=-1)] = target_corr
-    # fill upper off diagnal with correlation target
-    corr_mat[np.triu_indices(n_voxels, k=1)] = target_corr
-    corr_mats = {tt: corr_mat for tt in trial_types_uniq}
+    cov_mat[np.tril_indices(n_voxels, k=-1)] = target_corr * (trial_std ** 2)
+    # fill upper off diagonal with correlation target
+    cov_mat[np.triu_indices(n_voxels, k=1)] = target_corr * (trial_std ** 2)
+    cov_mats = {tt: cov_mat for tt in trial_types_uniq}
 
-    if trial_types_num != len(corr_mats.values()):
+    if trial_types_num != len(cov_mats.values()):
         raise ValueError("must be the same number of correlation matrices "
                          "as the number of trial types")
 
-    if set(trial_types_uniq) != set(corr_mats.keys()):
+    if set(trial_types_uniq) != set(cov_mats.keys()):
         raise ValueError("correlation matrix trial types do not "
                          "match the event trial types")
 
@@ -193,7 +217,7 @@ def _gen_beta_weights(events, target_corr, brain_dimensions):
 
     n_voxels = np.prod(brain_dimensions)
     beta_dict = {}
-    for trial_type, corr_mat in corr_mats.items():
+    for trial_type, cov_mat in cov_mats.items():
         trial_bool = events['trial_type'] == trial_type
         trial_num = trial_bool.sum()
         # continue while loop while the target correlations
@@ -213,7 +237,7 @@ def _gen_beta_weights(events, target_corr, brain_dimensions):
             # generate betas
             initial_guess = np.random.multivariate_normal(
                 gnd_means,
-                corr_mat,
+                cov_mat,
                 size=(trial_num),
                 tol=0.00005
             )
@@ -221,7 +245,7 @@ def _gen_beta_weights(events, target_corr, brain_dimensions):
             sim_betas = minimize(
                 _check_data,
                 initial_guess,
-                args=(corr_mat,),
+                args=(cov_mat, trial_std),
                 method='BFGS',
                 tol=1e-10
             ).x
@@ -231,7 +255,8 @@ def _gen_beta_weights(events, target_corr, brain_dimensions):
 
             corr_error = _check_data(
                 sim_betas,
-                corr_mat,
+                cov_mat,
+                trial_std,
             )
 
             c_wrong = c_tol < corr_error
@@ -250,7 +275,7 @@ def _gen_beta_weights(events, target_corr, brain_dimensions):
             # m_wrong = np.any(m_diff > mean_tol)
 
         if end > overtime:
-            raise("Could not make a correlation at the specific parameter")
+            raise RuntimeError("Could not make a correlation at the specific parameter")
         mean_fix = 1 - sim_betas.mean(axis=0)
         # ensure each beta series has average of 1.
         sim_betas_fixed = sim_betas + mean_fix
@@ -272,6 +297,7 @@ class ContrastNoiseRatioInputSpec(BaseInterfaceInputSpec):
 class ContrastNoiseRatioOutputSpec(TraitedSpec):
     cnr = traits.Float()
     noise_dict = traits.Dict()
+    noise_std = traits.Float(desc="standard deviation of the residuals")
 
 
 class ContrastNoiseRatio(SimpleInterface):
@@ -367,13 +393,15 @@ class ContrastNoiseRatio(SimpleInterface):
         cnr = amplitude / noise_std
 
         self._results['cnr'] = cnr
+        self._results['noise_std'] = noise_std
         self._results['noise_dict'] = noise_dict
 
         return runtime
 
 
-def _check_data(x, target_corr_mat):
+def _check_data(x, target_cov_mat, trial_std):
     corr_mat_obs = np.corrcoef(x.T)
+    target_corr_mat = target_cov_mat / (trial_std ** 2)
     corr_error = _check_corr(corr_mat_obs, target_corr_mat)
 
     return corr_error
