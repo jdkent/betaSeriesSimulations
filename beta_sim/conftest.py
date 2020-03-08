@@ -1,7 +1,18 @@
+from os.path import join, dirname, abspath
+
 import numpy as np
 import pandas as pd
 import pytest
 from brainiak.utils import fmrisim as sim
+
+
+def get_test_data_path():
+    return join(dirname(abspath(__file__)), 'tests', 'data')
+
+
+@pytest.fixture(scope='session')
+def activation_mask():
+    return join(get_test_data_path(), "overall_response_atlas.nii.gz")
 
 
 @pytest.fixture(scope='session')

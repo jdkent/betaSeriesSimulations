@@ -52,7 +52,10 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
     )
 
     est_cnr = pe.Node(
-        ContrastNoiseRatio(tr=config['tr_duration'], method="Welvaert"),
+        ContrastNoiseRatio(
+            tr=config['tr_duration'],
+            method="Welvaert",
+            activation_mask=config.get("activation_mask", None)),
         name="est_cnr",
     )
 

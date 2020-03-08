@@ -292,6 +292,7 @@ class ContrastNoiseRatioInputSpec(BaseInterfaceInputSpec):
     selected_confounds = traits.Either(None, traits.List(),
                                        desc="Column names of the regressors to include")
     method = traits.Enum("Kent", "Welvaert", desc="method to Calculate CNR")
+    activation_mask = traits.Either(None, File(exists=True))
     tr = traits.Float()
 
 
@@ -313,6 +314,7 @@ class ContrastNoiseRatio(SimpleInterface):
         import pandas as pd
         import numpy as np
         import nibabel as nib
+        from nibabel.processing import resample_from_to
 
         bold_img = nib.load(self.inputs.bold_file)
         mask, template = sim.mask_brain(volume=bold_img.get_data(),
@@ -365,8 +367,7 @@ class ContrastNoiseRatio(SimpleInterface):
 
         # assume noise is average of all the residual standard deviations
         noise_std = np.mean(all_residual_std)
-        # get the activation value at three scans post onset
-        # (i.e., with a tr of 2, this will be 6 seconds)
+
         activation_zscore = model.compute_contrast(
             contrast_of_interest,
             output_type='z_score')
@@ -375,14 +376,31 @@ class ContrastNoiseRatio(SimpleInterface):
             contrast_of_interest,
             output_type='effect_size')
 
-        threshold_map, threshold = map_threshold(
-            activation_zscore,
-            alpha=.005,
-            height_control='fpr')
+        # get the activation value at three scans post onset
+        # (i.e., with a tr of 2, this will be 6 seconds)
+        if self.inputs.activation_mask:
+            tmp_act_img = nib.load(self.inputs.activation_mask)
+            tmp_bold_img = nib.Nifti1Image(
+                bold_img.get_fdata()[..., 0],
+                bold_img.affine)
+            # resample
+            activation_img = resample_from_to(
+                tmp_act_img,
+                tmp_bold_img,
+                order=0,
+                mode='nearest')
+            # boolean numpy array
+            activation_mask = activation_img.get_fdata() > 0
+        else:
+            threshold_map, threshold = map_threshold(
+                activation_zscore,
+                alpha=.005,
+                height_control='fpr')
 
-        activation_mask = threshold_map.get_data()
-        activation_mask[np.nonzero(activation_mask)] = 1
-        activation_mask = activation_mask.astype(bool)
+            activation_mask = threshold_map.get_data()
+            activation_mask[np.nonzero(activation_mask)] = 1
+            activation_mask = activation_mask.astype(bool)
+
         # get all significant activation values
         activation_values = activation_raw.get_data()[activation_mask]
 

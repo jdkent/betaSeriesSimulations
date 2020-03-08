@@ -19,7 +19,7 @@ def test_SimulateData(events_file, noise_dict, tr, tp,
     assert sim_data.run()
 
 
-def test_ContrastNoiseRatio(example_data_dir):
+def test_ContrastNoiseRatio(example_data_dir, activation_mask):
     from ..fmrisim import ContrastNoiseRatio
     import os
 
@@ -56,6 +56,8 @@ def test_ContrastNoiseRatio(example_data_dir):
         bold_file=bold_file,
         confounds_file=confounds_file,
         selected_confounds=["CSF", "WhiteMatter"],
+        method="Welvaert",
+        activation_mask=activation_mask,
         tr=tr)
 
     assert calc_cnr.run()
