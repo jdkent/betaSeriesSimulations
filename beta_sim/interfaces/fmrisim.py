@@ -415,10 +415,10 @@ class ContrastNoiseRatio(SimpleInterface):
             perc = 90
             # calc cnr similar to 10.1371/journal.pone.0077089
             signal = bold_img.get_fdata()[activation_mask].mean(axis=0)
-            noise = bold_img.get_fdata()[activation_mask] - bold_img.get_fdata()[activation_mask].mean(axis=0)
+            noise = (bold_img.get_fdata()[activation_mask] - signal).std(axis=1)
 
-            cnr = np.percentile(signal, perc) / noise.std()
-            noise_std = noise.std()
+            cnr = np.median(signal) / np.median(noise)
+            noise_std = np.median(noise)
         else:
             raise ValueError("Must select either Kent or Welvaert for CNR")
 
