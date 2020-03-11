@@ -20,6 +20,7 @@ class ResultsEntryInputSpec(BaseInterfaceInputSpec):
     trial_noise_ratio = traits.Dict()
     iti_mean = traits.Either(traits.Float(), None)
     n_trials = traits.Either(traits.Int(), None)
+    noise_correlation = traits.Float()
 
 
 class ResultsEntryOutputSpec(TraitedSpec):
@@ -42,6 +43,7 @@ class ResultsEntry(SimpleInterface):
         entry_collector = {
             "correlation_target": [],
             "correlation_observed": [],
+            "correlation_noise": [],
             "estimation_method": [],
             "signal_magnitude": [],
             "snr_method": [],
@@ -74,6 +76,7 @@ class ResultsEntry(SimpleInterface):
                 entry_collector['trial_noise_ratio'].append(trial_noise_ratio)
                 entry_collector['correlation_target'].append(corr_tgt)
                 entry_collector['correlation_observed'].append(corr_obs_flat)
+                entry_collector['correlation_noise'].append(self.inputs.noise_correlation)
                 entry_collector['estimation_method'].append(method)
                 entry_collector['signal_magnitude'].append(signal_magnitude)
                 entry_collector['snr_method'].append(self.inputs.snr_measure)

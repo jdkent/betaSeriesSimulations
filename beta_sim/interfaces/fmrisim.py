@@ -29,6 +29,7 @@ class SimulateDataInputSpec(BaseInterfaceInputSpec):
     n_trials = traits.Int()
     correction = traits.Bool(desc="use the 'real data' method to detect cnr")
     trial_standard_deviation = traits.Float(desc="Standard Deviation of Trial Betas")
+    noise_method = traits.Enum('real', 'simple', default='real', usedefault='true')
 
 
 class SimulateDataOutputSpec(TraitedSpec):
@@ -41,6 +42,7 @@ class SimulateDataOutputSpec(TraitedSpec):
     correlation_targets = traits.Float()
     trial_standard_deviation = traits.Float()
     trial_noise_ratio = traits.Dict()
+    noise_correlation = traits.Float()
 
 
 class SimulateData(BrainiakBaseInterface, SimpleInterface):
@@ -117,19 +119,29 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
             'physiological_sigma': 1,
             'sfnr': 60, 'snr': 40,
             'task_sigma': 1,
-            'voxel_size': [3.0, 3.0, 3.0]
+            'voxel_size': [3.0, 3.0, 3.0],
+            'ignore_spatial': True,
         }
-        noise = sim.generate_noise(
-            dimensions=self.inputs.brain_dimensions,
-            stimfunction_tr=stim_func_total[::skip_idx, :],
-            tr_duration=self.inputs.tr_duration,
-            template=template,
-            mask=mask,
-            noise_dict=tmp_noise_dict
-        )
+        if self.inputs.noise_method == "real":
+            noise = sim.generate_noise(
+                dimensions=self.inputs.brain_dimensions,
+                stimfunction_tr=stim_func_total[::skip_idx, :],
+                tr_duration=self.inputs.tr_duration,
+                template=template,
+                mask=mask,
+                noise_dict=tmp_noise_dict
+            )
+        elif self.inputs.noise_method == "simple":
+            n_voxels = np.prod(self.inputs.brain_dimensions)
+            gnd_means = np.full(n_voxels, 1000)
+            cov = np.eye(n_voxels)
+            tmp_noise = np.random.multivariate_normal(
+                gnd_means, cov, size=len(stim_func_total[::skip_idx, :])).T
+            noise = np.reshape(tmp_noise, sim_brain.shape)
 
         # make sure noise has standard deviation of 1
         noise_standard = noise / noise.std()
+        noise_corr = np.corrcoef(noise_standard.squeeze())[0, 1]
 
         tmp_signal_scaled = sim.compute_signal_change(
             signal_function=sim_brain,
@@ -139,7 +151,7 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
             method=self.inputs.snr_measure
         )
 
-        tmp_brain = tmp_signal_scaled + noise
+        tmp_brain = tmp_signal_scaled + noise_standard
 
         if self.inputs.correction:
             corrected_signal_mag = _calc_cnr(
@@ -174,6 +186,7 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
         self._results['trial_noise_ratio'] = trial_noise_ratio
         self._results['trial_standard_deviation'] = self.inputs.trial_standard_deviation
         self._results['correlation_targets'] = self.inputs.correlation_targets
+        self._results['noise_correlation'] = noise_corr
         self._results['simulated_data'] = brain
         self._results['iteration'] = self.inputs.iteration
         self._results['signal_magnitude'] = signal_mag
