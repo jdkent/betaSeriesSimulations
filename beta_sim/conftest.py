@@ -96,7 +96,8 @@ def config_file(base_path):
                 "sfnr": 60,
                 "snr": 40,
                 "task_sigma": 1,
-                "voxel_size": [3.0, 3.0, 3.0]
+                "voxel_size": [3.0, 3.0, 3.0],
+                "ignore_spatial": True,
             },
         "snr_measure": "CNR_Amp/Noise-SD",
         "signal_magnitude": [[8.17], [37.06], [95.73]],
@@ -145,20 +146,21 @@ def config_file_simple(base_path):
                 "sfnr": 60,
                 "snr": 40,
                 "task_sigma": 1,
-                "voxel_size": [3.0, 3.0, 3.0]
+                "voxel_size": [3.0, 3.0, 3.0],
+                "ignore_spatial": True,
             },
         "snr_measure": "CNR_Amp/Noise-SD",
-        "signal_magnitude": [[37.06], [0.4]],
+        "signal_magnitude": [[.001], [1000]],
         "trials": [15, 30],
         "iti_min": [1],
-        "iti_mean": [6, 8],
-        "iti_max": [16],
+        "iti_mean": [8, 20],
+        "iti_max": [42],
         "iti_model": ["exponential"],
         "stim_duration": [0.2],
         "design_resolution": [0.1],
         "rho": [0.5],
         "brain_dimensions": [1, 1, 2],
-        "trial_standard_deviation": [0.5, 4.0],
+        "trial_standard_deviation": [1, 10],
     }
 
     with open(config_file_s, 'w') as cf:
@@ -194,7 +196,8 @@ def config_file_manual(base_path):
                 "sfnr": 60,
                 "snr": 40,
                 "task_sigma": 1,
-                "voxel_size": [3.0, 3.0, 3.0]
+                "voxel_size": [3.0, 3.0, 3.0],
+                "ignore_spatial": True,
             },
         "snr_measure": "CNR_Amp/Noise-SD",
         "signal_magnitude": [[37.06], [20.0]],
