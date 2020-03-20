@@ -46,10 +46,14 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
     read_design = pe.Node(
         ReadDesign(tr=config['tr_duration']),
         name="read_design",
-        iterables=[('events_file', config.get('events_file', None)),
-                   ('bold_file', config.get('bold_file', None))],
+        iterables=[('events_file', config.get('events_file', None))],
         synchronize=True,
     )
+
+    if config.get('bold_file', None):
+        read_design.iterables.append(('bold_file', config['bold_file']))
+    elif config.get('nvols', None):
+        read_design.iterables.append(('nvols', config['nvols']))
 
     est_cnr = pe.Node(
         ContrastNoiseRatio(
@@ -77,24 +81,18 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
     if config.get('events_file', None):
         design_node = read_design
         design_name = "read_design"
-        sim_data_iterables = [
-           ('iteration', list(range(n_simulations))),
-           ('correlation_targets', config['correlation_targets']),
-           ('trial_standard_deviation', config['trial_standard_deviation']),
-        ]
-        sim_data_kwargs = {}
-
     # you wish to create an events file
     else:
         design_node = create_design
         design_name = "create_design"
-        sim_data_iterables = [
-            ('iteration', list(range(n_simulations))),
-            ('signal_magnitude', config['signal_magnitude']),
-            ('correlation_targets', config['correlation_targets']),
-            ('trial_standard_deviation', config['trial_standard_deviation']),
-        ]
-        sim_data_kwargs = {'noise_dict': config['noise_dict']}
+
+    sim_data_iterables = [
+        ('iteration', list(range(n_simulations))),
+        ('signal_magnitude', config['signal_magnitude']),
+        ('correlation_targets', config['correlation_targets']),
+        ('trial_standard_deviation', config['trial_standard_deviation']),
+    ]
+    sim_data_kwargs = {'noise_dict': config['noise_dict']}
 
     simulate_data = pe.Node(
         SimulateData(tr_duration=config['tr_duration'],
@@ -107,7 +105,8 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
         name="simulate_data",
     )
 
-    if config.get('events_file', None):
+    if config.get('bold_file', None):
+        simulate_data.iterables.remove(('signal_magnitude', config['signal_magnitude']))
         wf.connect([
             (read_design, est_cnr,
                 [('events_files', 'events_files'),

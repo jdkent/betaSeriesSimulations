@@ -121,9 +121,9 @@ class CreateDesign(NeuroDesignBaseInterface, SimpleInterface):
 
 class ReadDesignInputSpec(BaseInterfaceInputSpec):
     events_file = traits.File()
-    bold_file = traits.File()
+    bold_file = traits.Either(None, traits.File())
     tr = traits.Float()
-
+    nvols = traits.Either(None, traits.Int())
 
 class ReadDesignOutputSpec(TraitedSpec):
     events_files = traits.List(trait=traits.File())
@@ -132,7 +132,7 @@ class ReadDesignOutputSpec(TraitedSpec):
     n_trials = traits.Int()
     iti_mean = traits.Float()
     tr = traits.Float()
-    bold_file = traits.File()
+    bold_file = traits.Either(None, traits.File())
 
 
 class ReadDesign(SimpleInterface):
@@ -144,9 +144,13 @@ class ReadDesign(SimpleInterface):
         import nibabel as nib
 
         events_df = pd.read_csv(self.inputs.events_file, sep='\t')
-        bold_img = nib.load(self.inputs.bold_file)
-
-        nvols = bold_img.get_shape()[-1]
+        if self.inputs.bold_file:
+            bold_img = nib.load(self.inputs.bold_file)
+            nvols = bold_img.get_shape()[-1]
+        elif self.inputs.nvols:
+            nvols = self.inputs.nvols
+        else:
+            raise ValueError("Either bold_image or nvols needs to be set")
 
         # tr = bold_img.header.get_zooms()[-1]
         tr = self.inputs.tr
