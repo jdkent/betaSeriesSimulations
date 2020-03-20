@@ -86,12 +86,12 @@ def process_config(config):
         print("events_file(s) detected, ignoring design arguments")
         design_arguments = ['trials', 'iti_min', 'iti_mean', 'iti_max',
                             'iti_model', 'stim_duration', 'design_resolution',
-                            'rho', 'noise_dict']
+                            'rho']
 
         # delete unused keys
         deleted_dict = {k: config_dict.pop(k)
-                          for k in design_arguments
-                          if k in config_dict.keys()}
+                        for k in design_arguments
+                        if k in config_dict.keys()}
         print("Deleted: {}".format(' '.join(deleted_dict.keys())))
 
     else:
