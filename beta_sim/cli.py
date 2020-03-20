@@ -89,10 +89,10 @@ def process_config(config):
                             'rho', 'noise_dict']
 
         # delete unused keys
-        deleted_values = [config_dict.pop(k)
+        deleted_dict = {k: config_dict.pop(k)
                           for k in design_arguments
-                          if k in config_dict.keys()]
-        print("Deleted: {}".format(' '.join(deleted_values)))
+                          if k in config_dict.keys()}
+        print("Deleted: {}".format(' '.join(deleted_dict.keys())))
 
     else:
         # change lists to arrays

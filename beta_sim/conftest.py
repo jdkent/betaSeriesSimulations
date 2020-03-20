@@ -1,4 +1,5 @@
 from os.path import join, dirname, abspath
+import json
 
 import numpy as np
 import pandas as pd
@@ -117,6 +118,144 @@ def config_file(base_path):
         json.dump(config_dict, cf)
 
     return config_file
+
+
+@pytest.fixture(scope='session')
+def config_file_real(base_path, example_data_dir):
+    config_file_real = base_path / "config_real.json"
+
+    events_file = join(
+        example_data_dir,
+        "ds000164",
+        "sub-001",
+        "func",
+        "sub-001_task-stroop_events.tsv")
+
+    bold_file = join(
+        example_data_dir,
+        "ds000164",
+        "derivatives",
+        "fmriprep",
+        "sub-001",
+        "func",
+        "sub-001_task-stroop_space-MNI152NLin2009cAsym_desc-preproc_bold.nii.gz")
+
+    config_dict = {
+        "correlation_targets": [0.2, 0.6],
+        "events_file": [events_file],
+        "trial_types": ["congruent", "incongruent", "neutral"],
+        "bold_file": [bold_file],
+        "n_event_files": 20,
+        "sim_estimation": 0.0,
+        "sim_detection": 0.5,
+        "sim_freq": 0.25,
+        "sim_confound": 0.25,
+        "tr_duration": 2,
+        "noise_dict":
+            {
+                "auto_reg_rho": [0.5],
+                "auto_reg_sigma": 1,
+                "drift_sigma": 1,
+                "fwhm": 4,
+                "ma_rho": [0.0],
+                "matched": 0,
+                "max_activity": 1000,
+                "physiological_sigma": 1,
+                "sfnr": 60,
+                "snr": 40,
+                "task_sigma": 1,
+                "voxel_size": [3.0, 3.0, 3.0],
+                "ignore_spatial": True,
+            },
+        "snr_measure": "CNR_Amp/Noise-SD",
+        "signal_magnitude": [[.001], [1000]],
+        "trials": [15, 30],
+        "iti_min": [1],
+        "iti_mean": [8, 20],
+        "iti_max": [42],
+        "iti_model": ["exponential"],
+        "stim_duration": [0.2],
+        "design_resolution": [0.1],
+        "rho": [0.5],
+        "brain_dimensions": [1, 1, 2],
+        "trial_standard_deviation": [1, 10],
+    }
+
+    with open(config_file_real, 'w') as cf:
+        json.dump(config_dict, cf)
+
+    return config_file_real
+
+
+@pytest.fixture(scope='session')
+def config_file_events(base_path, example_data_dir):
+    import nibabel as nib
+
+    config_file_events = base_path / "config_events.json"
+
+    events_file = join(
+        example_data_dir,
+        "ds000164",
+        "sub-001",
+        "func",
+        "sub-001_task-stroop_events.tsv")
+
+    bold_file = join(
+        example_data_dir,
+        "ds000164",
+        "derivatives",
+        "fmriprep",
+        "sub-001",
+        "func",
+        "sub-001_task-stroop_space-MNI152NLin2009cAsym_desc-preproc_bold.nii.gz")
+
+    nvols = nib.load(bold_file).shape[-1]
+
+    config_dict = {
+        "correlation_targets": [0.2, 0.6],
+        "events_file": [events_file],
+        "trial_types": ["congruent", "incongruent", "neutral"],
+        "nvols": nvols,
+        "n_event_files": 20,
+        "sim_estimation": 0.0,
+        "sim_detection": 0.5,
+        "sim_freq": 0.25,
+        "sim_confound": 0.25,
+        "tr_duration": 2,
+        "noise_dict":
+            {
+                "auto_reg_rho": [0.5],
+                "auto_reg_sigma": 1,
+                "drift_sigma": 1,
+                "fwhm": 4,
+                "ma_rho": [0.0],
+                "matched": 0,
+                "max_activity": 1000,
+                "physiological_sigma": 1,
+                "sfnr": 60,
+                "snr": 40,
+                "task_sigma": 1,
+                "voxel_size": [3.0, 3.0, 3.0],
+                "ignore_spatial": True,
+            },
+        "snr_measure": "CNR_Amp/Noise-SD",
+        "signal_magnitude": [[.001], [1000]],
+        "trials": [15, 30],
+        "iti_min": [1],
+        "iti_mean": [8, 20],
+        "iti_max": [42],
+        "iti_model": ["exponential"],
+        "stim_duration": [0.2],
+        "design_resolution": [0.1],
+        "rho": [0.5],
+        "brain_dimensions": [1, 1, 2],
+        "trial_standard_deviation": [1, 10],
+    }
+
+    with open(config_file_events, 'w') as cf:
+        json.dump(config_dict, cf)
+
+    return config_file_events
 
 
 @pytest.fixture(scope='session')
