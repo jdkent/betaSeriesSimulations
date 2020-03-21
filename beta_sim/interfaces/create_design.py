@@ -125,6 +125,7 @@ class ReadDesignInputSpec(BaseInterfaceInputSpec):
     tr = traits.Float()
     nvols = traits.Either(None, traits.Int())
 
+
 class ReadDesignOutputSpec(TraitedSpec):
     events_files = traits.List(trait=traits.File())
     total_duration = traits.Int()
