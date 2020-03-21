@@ -40,10 +40,6 @@ jobs:
               --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
               --build-arg VCS_REF=$(git rev-parse --short HEAD) .
       - run:
-          name: Test Docker image
-          command: |
-            docker run --entrypoint /bin/bash jdkent/beta_sim:dev echo "hello world"
-      - run:
           name: pytest Docker image
           command: |
             docker run --entrypoint /neurodocker/startup.sh jdkent/beta_sim:dev \
