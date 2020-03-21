@@ -3,6 +3,7 @@ import pytest
 from ..workflow import init_beta_sim_wf
 
 
+@pytest.mark.skip(reason="This test takes a while")
 def test_init_beta_sim_wf(base_path, tr, tp,
                           config_dict):
     fname = 'test.tsv'
