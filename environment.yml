@@ -9,14 +9,15 @@ dependencies:
   - numpy=1.14.5
   - pip=19.0.3
   - python=3.6.8
+  - brainiak
   - statsmodels=0.9.0
   - flake8
   - pytest=5.0.1
-  - brainiak
   - jupyter
   - datalad
   - ptvsd
   - pip:
     - git+https://github.com/jdkent/neurodesign.git@2998954f3cf5354a6bd5f6f93380915f8f3ab693#egg=neurodesign
-    - nibetaseries==0.4.2
-    - git+https://github.com/niflows/niflow-manager.git@8a223c248c925230f27385f0eb0e66275b422c46#egg=niflow-manager
+    - git+https://github.com/jdkent/NiBetaSeries.git@no_signal_scaling#egg=nibetaseries
+#    - git+https://github.com/niflows/niflow-manager.git@8a223c248c925230f27385f0eb0e66275b422c46#egg=niflow-manager
+#    - --no-use-pep517 git+https://github.com/jdkent/brainiak.git@separate_temporal_spatial#egg=brainiak
