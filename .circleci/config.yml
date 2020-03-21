@@ -46,8 +46,8 @@ jobs:
       - run:
           name: pytest Docker image
           command: |
-          docker run --entrypoint /neurodocker/startup.sh jdkent/beta_sim:dev \
-          bash -c ". activate betaseries_simulation && pytest /home/coder/project"
+            docker run --entrypoint /neurodocker/startup.sh jdkent/beta_sim:dev \
+            bash -c ". activate betaseries_simulation && pytest /home/coder/project"
       - run:
           name: Docker save
           no_output_timeout: 30m
