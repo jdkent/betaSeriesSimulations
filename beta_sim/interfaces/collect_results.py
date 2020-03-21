@@ -52,6 +52,7 @@ class ResultsEntry(SimpleInterface):
             "n_trials": [],
             "trial_type": [],
             "trial_noise_ratio": [],
+            "trial_standard_deviation": [],
         }
         signal_magnitude = self.inputs.signal_magnitude[0]
         for method, nii_files in method_dict.items():
@@ -83,6 +84,8 @@ class ResultsEntry(SimpleInterface):
                 entry_collector['iteration'].append(self.inputs.iteration)
                 entry_collector['iti_mean'].append(self.inputs.iti_mean)
                 entry_collector['n_trials'].append(self.inputs.n_trials)
+                entry_collector['trial_standard_deviation'].append(
+                    self.inputs.trial_standard_deviation)
 
         if self.inputs.iti_mean is None:
             entry_collector.pop('iti_mean')
