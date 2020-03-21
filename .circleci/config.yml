@@ -1,0 +1,66 @@
+version: 2
+jobs:
+
+  build_docker:
+    machine:
+      image: circleci/classic:201711-01
+    working_directory: /tmp/src/betaSim
+    steps:
+      - run:
+          name:  Install pigz
+          command: |
+            sudo apt update && sudo apt -y install pigz
+      - restore_cache:
+          keys:
+            - docker-v1-{{ .Branch }}-{{ .Revision }}
+            - docker-v1-{{ .Branch }}-
+            - docker-v1-master-
+            - docker-v1-
+          paths:
+            - /tmp/cache/docker.tar.gz
+      - checkout
+
+      - run:
+          name: Load Docker image layer cache
+          no_output_timeout: 30m
+          command: |
+            docker info
+            set +o pipefail
+            if [ -f /tmp/cache/docker.tar.gz ]; then
+              pigz -d --stdout /tmp/cache/docker.tar.gz | docker load
+              docker images
+            fi
+      - run:
+          name: Build Docker image
+          no_output_timeout: 60m
+          command: |
+            docker build \
+              --cache-from=jdkent/beta_sim:dev \
+              -t jdkent/beta_sim:dev \
+              --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
+              --build-arg VCS_REF=$(git rev-parse --short HEAD) .
+      - run:
+          name: Test Docker image
+          command: |
+            docker run --entrypoint /bin/bash jdkent/beta_sim:dev echo "hello world"
+      - run:
+          name: pytest Docker image
+          command: |
+          docker run --entrypoint /neurodocker/startup.sh jdkent/beta_sim:dev \
+          bash -c ". activate betaseries_simulation && pytest /home/coder/project"
+      - run:
+          name: Docker save
+          no_output_timeout: 30m
+          command: |
+            mkdir -p /tmp/cache
+            docker save jdkent/beta_sim:dev | pigz -3 > /tmp/cache/docker.tar.gz
+      
+      - persist_to_workspace:
+          root: /tmp
+          paths:
+            - src/NiBetaSeries
+      - save_cache:
+          key: docker-v1-{{ .Branch }}-{{ .Revision }}
+          paths:
+            - /tmp/cache/docker.tar.gz
+
