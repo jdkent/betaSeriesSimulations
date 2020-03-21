@@ -61,11 +61,6 @@ jobs:
           command: |
             mkdir -p /tmp/cache
             docker save jdkent/beta_sim:dev | pigz -3 > /tmp/cache/docker.tar.gz
-      
-      - persist_to_workspace:
-          root: /tmp
-          paths:
-            - src/NiBetaSeries
       - save_cache:
           key: docker-v1-{{ .Branch }}-{{ .Revision }}
           paths:
