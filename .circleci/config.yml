@@ -41,6 +41,7 @@ jobs:
               --build-arg VCS_REF=$(git rev-parse --short HEAD) .
       - run:
           name: pytest Docker image
+          no_output_timeout: 120m
           command: |
             docker run --entrypoint /neurodocker/startup.sh jdkent/beta_sim:dev \
             bash -c ". activate betaseries_simulation && pytest /home/coder/project"
