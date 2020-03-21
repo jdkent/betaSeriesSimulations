@@ -10,6 +10,13 @@ jobs:
           name:  Install pigz
           command: |
             sudo apt update && sudo apt -y install pigz
+      - run: 
+          name: Install git-lfs
+          command: |
+            curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash
+            sudo apt-get install git-lfs
+            git lfs install
+
       - restore_cache:
           keys:
             - docker-v1-{{ .Branch }}-{{ .Revision }}
@@ -19,7 +26,10 @@ jobs:
           paths:
             - /tmp/cache/docker.tar.gz
       - checkout
-
+      - run:
+          name: pull large files
+          command:
+            git lfs pull
       - run:
           name: Load Docker image layer cache
           no_output_timeout: 30m
