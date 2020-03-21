@@ -28,7 +28,7 @@ jobs:
       - checkout
       - run:
           name: pull large files
-          command:
+          command: |
             git lfs pull
       - run:
           name: Load Docker image layer cache
