@@ -18,6 +18,7 @@ generate_docker() {
            rm -rf /opt/miniconda-4.7.12/envs/betaseries_simulation/lib/python3.6/site-packages/brainiak &&\
            mv /home/coder/brainiak/brainiak /opt/miniconda-4.7.12/envs/betaseries_simulation/lib/python3.6/site-packages/ &&\
            rm -rf /home/coder/brainiak" \
+    --run ". activate betaseries_simulation && pip install -e /home/coder/project" \
     --run 'code-server --install-extension eamodio.gitlens && code-server --install-extension ms-python.python' \
     --entrypoint 'code-server --auth none /home/coder/project'
 
