@@ -1,7 +1,7 @@
 version: 2
 jobs:
 
-  build_docker:
+  build:
     machine:
       image: circleci/classic:201711-01
     working_directory: /tmp/src/betaSim
