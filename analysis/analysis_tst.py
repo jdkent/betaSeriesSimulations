@@ -179,9 +179,8 @@ def test_power(df, estimation_method="lss", iti_mean=4.0,
 
     group1 = df.query(group1_query)
     group2 = df.query(group2_query)
-
     target_diff = abs(correlation_tgt2 - correlation_tgt1)
-    test_collector = {"t_value": [], "p_value": [],
+    test_collector = {"t_value": [], "p_value": [], "estimate": [],
                       "tgt_corr_diff": [target_diff] * simulations,
                       "trial_var": [trial_var] * simulations,
                       "estimation_method": [estimation_method] * simulations,
@@ -200,7 +199,7 @@ def test_power(df, estimation_method="lss", iti_mean=4.0,
             group1_sample = np.random.choice(group1['corr_obs_trans'].values, sample_size, replace=False)
             group2_sample = np.random.choice(group2['corr_obs_trans'].values, sample_size, replace=False)
         sample = group1_sample - group2_sample
-
+        test_collector['estimate'].append(np.abs(sample.mean()))
         t, p = ttest_1samp(sample, 0)
         test_collector["t_value"].append(t)
         if correlation_tgt1 < correlation_tgt2 and t > 0 and p < 0.05:
@@ -287,97 +286,81 @@ lsa pwr: {lsa_pwr}""")
         # g_hist.savefig('../outputs/snr-{}_trial_noise-{}_simplified_pwr.png', dpi=400)
         g_hist.savefig('../outputs/snr-{}_trial_noise-{}_diff-large_simplified_pwr.svg'.format(signal_magnitude, trial_var))
 
+#%% Simulated data using a real task (task switch)
+df = pd.read_csv('../simulation_1000_task_switch.tsv', sep='\t')
+
 #%%
+df.loc[df['correlation_observed'] == 1, 'correlation_observed'] -= 0.0001
+df.loc[df['correlation_observed'] == -1, 'correlation_observed'] += 0.0001
+df['corr_obs_trans'] = np.arctanh(df['correlation_observed'])
+df['corr_obs_trans_clip'] = np.clip(df['corr_obs_trans'], -1.5, 1.5)
+df['trial_noise_group'] = np.rint(np.abs(np.log10((df['trial_noise_ratio'] / df['signal_magnitude'])))).astype(int)
+
+#%%
+# test the baseline assumption that no difference correlations
+# should have a 5% false positive rate
 stat_collector = []
 pwr_collector = {}
 for est in ["lsa", "lss"]:
-    for iti_mean in [2.0, 4.0]:
-        for n_trials in [15, 60]:
-            for tgt_corr in [(0.0, 0.1), (0.1, 0.2), (0.2, 0.3)]:
+    for signal_magnitude in [1, 10]:
+        for trial_noise in [0, 1]:
+            pwr_key = (est, signal_magnitude, trial_noise)
+            pwr_collector[pwr_key] = []
+            for tgt_corr in [(0.0, 0.1),
+                            (0.1, 0.2),
+                            (0.2, 0.3),
+                            (0.3, 0.4),
+                            (0.4, 0.5),
+                            (0.5, 0.6),
+                            (0.6, 0.7),
+                            (0.7, 0.8),
+                            (0.8, 0.9)]:
                 test_df, pwr = test_power(
-                    df, estimation_method=est, n_trials=n_trials,
-                    iti_mean=iti_mean, signal_magnitude=10,
-                    correlation_tgt1=tgt_corr[0], correlation_tgt2=tgt_corr[1])
+                    df, estimation_method=est, n_trials=50,
+                    iti_mean=18.84, signal_magnitude=signal_magnitude,
+                    correlation_tgt1=tgt_corr[0], correlation_tgt2=tgt_corr[1],
+                    trial_type1='repeat', trial_type2='switch',
+                    simulations=1112, sample_size=61, trial_var=trial_noise)
                 stat_collector.append(test_df)
-                pwr_collector[(est, iti_mean, n_trials)] = pwr
-
-
+                pwr_collector[pwr_key].append(pwr)
 #%%
 df_pwr = pd.concat(stat_collector)
+
 
 #%%
 tmp_rename['p_value'] = "p value"
 df_pwr_tmp = df_pwr.rename(columns=tmp_rename)
 
-g_fac = sns.FacetGrid(df_pwr_tmp, row="# Trials", col="Inter Trial Interval",
-                      hue="Estimation Method",
-                      hue_order=["lss", "lsa"], margin_titles=True,
-                      sharey=False)
 
-g_hist = (g_fac.map(sns.distplot, "p value", hist=True, bins=20))
-sg_hist_lgnd = g_hist.axes[0, 1]
-sg_hist_lgnd.legend()
-
-txtstr = r"""lss pwr: {lss_pwr}
-lsa pwr: {lsa_pwr}"""
-
-props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-for iti_mean, ax, n_trials in zip([2.0, 4.0, 2.0, 4.0],
-                                  g_hist.axes.ravel(),
-                                  [15, 15, 60, 60]):
-    lss_pwr = pwr_collector[("lss", iti_mean, n_trials)]
-    lsa_pwr = pwr_collector[("lsa", iti_mean, n_trials)]
+def distplot_plus(x, sig_mag, trial_var, **kwargs):
+    txtstr = dedent(r"""lss pwr: {lss_pwr}
+lsa pwr: {lsa_pwr}""")
+    props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+    ax = sns.distplot(x, **kwargs)
+    ax.set_yticklabels([])
+    lss_pwr = np.array(pwr_collector[("lss", sig_mag.unique()[0], trial_var.unique()[0])]).mean()
+    lsa_pwr = np.array(pwr_collector[("lsa", sig_mag.unique()[0], trial_var.unique()[0])]).mean()
 
     txtrepl = txtstr.format(lss_pwr=np.round(lss_pwr, 2),
                             lsa_pwr=np.round(lsa_pwr, 2))
     ax.text(0.25, 0.45, txtrepl, transform=ax.transAxes, fontsize=14,
             verticalalignment='center',
             horizontalalignment="left", bbox=props)
-#%%
-bold_pwr_dict = {"method": [], "power": [], "participants": []}
-for method in ["lsa", "lss"]:
-    # from 5 participants to 40
-    for participants in range(5, 60):
-        bold_df, bold_pwr = test_power(
-            df,
-            estimation_method=method,
-            iti_mean=4.0,
-            n_trials=60,
-            signal_magnitude=10,
-            correlation_tgt1=0.0,
-            correlation_tgt2=0.3,
-            sample_size=participants)
-        bold_pwr_dict['method'].append(method)
-        bold_pwr_dict['participants'].append(participants)
-        bold_pwr_dict['power'].append(bold_pwr)
+    return ax
 
-bold_pwr_df = pd.DataFrame.from_dict(bold_pwr_dict)
-bold_pwr_df.head()
+g_fac = sns.FacetGrid(df_pwr_tmp, row="signal_magnitude", col="trial_var",
+                    hue="Estimation Method",
+                    hue_order=["lss", "lsa"], margin_titles=True,
+                    sharey=False)
 
-#%%
-pp = sns.lineplot(
-    x='participants',
-    y='power',
-    hue='method',
-    legend="brief",
-    hue_order=["lss", "lsa"],
-    data=bold_pwr_df)
+g_hist = (g_fac.map(distplot_plus, "p value", "signal_magnitude", "trial_var", hist=True, bins=20))
+sg_hist_lgnd = g_hist.axes[0, 1]
+sg_hist_lgnd.legend()
 
-lgnd = pp.legend()
-lgnd.get_texts()[0].set_text('')
-for txt in lgnd.get_texts()[1:]:
-    txt.set_fontsize(15)
-lgnd.set_title("Estimation Method", prop={'size': 15, 'weight': 'heavy'})
-pp.set_xlabel("# of Participants",
-              fontdict={'fontsize': 15, 'fontweight': 'heavy'})
-pp.set_ylabel("Power",
-              fontdict={'fontsize': 15, 'fontweight': 'heavy'})
-pp.axhline(0.8, linestyle='--')
-plt.tight_layout()
-pp.figure.savefig('../outputs/power_plot.svg')
-pp.figure.savefig('../outputs/power_plot.png', dpi=400)
-# TEST ON REAL DATA
-## get the events.tsv formatted correctly
+
+# g_hist.savefig('../outputs/snr-{}_trial_noise-{}_simplified_pwr.png', dpi=400)
+g_hist.savefig('../outputs/diff-small_task-taskswitch_simplified_pwr.svg')
+
 #%%
 # use real data
 events_df = pd.read_csv(
@@ -541,5 +524,16 @@ for est in ["lsa", "lss"]:
     stat_collector.append(test_df)
     pwr_collector[est] = pwr
 
+
+# %%
+tips = sns.load_dataset("tips")
+from scipy import stats
+def qqplot(x, y, **kwargs):
+    _, xr = stats.probplot(x, fit=False)
+    _, yr = stats.probplot(y, fit=False)
+    plt.scatter(xr, yr, **kwargs)
+
+g = sns.FacetGrid(tips, col="smoker", height=4)
+g.map(qqplot, "total_bill", "tip");
 
 # %%
