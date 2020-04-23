@@ -19,13 +19,13 @@ import importlib
 importlib.reload(saf)
 
 #%%
-df = pd.read_csv('../simulation_100_lsa_params_more.tsv', sep='\t')
+df = pd.read_csv('../simulation_200_real_params.tsv', sep='\t')
 df.loc[df['correlation_observed'] == 1, 'correlation_observed'] -= 0.0001
 df.loc[df['correlation_observed'] == -1, 'correlation_observed'] += 0.0001
 df['corr_obs_trans'] = np.arctanh(df['correlation_observed'])
 df['corr_obs_trans_clip'] = np.clip(df['corr_obs_trans'], -1.5, 1.5)
-df['avnr'] = np.rint(np.abs(np.log10((df['trial_noise_ratio'] / df['signal_magnitude'])))).astype(int)
-df['avnr'].replace({0: 1, 1: 10}, inplace=True)
+# Some simulations appear to be missing 1's for trial_standard_deviation
+df['avnr'] = df['trial_standard_deviation'].fillna(1).astype(int)
 df.rename({'signal_magnitude': 'cnr'}, axis=1, inplace=True)
 
 #%%
@@ -86,10 +86,10 @@ for cnr in cnrs:
                       "estimation_method": "Estimation Method"}
         df_tmp.rename(columns=tmp_rename, inplace=True)
         g2 = sns.catplot(x="Ground Truth Correlation", y="Observed Correlation (r-z)",
-                        hue="Estimation Method",
-                        col="Inter Event Interval", row="# Events",
-                        data=df_tmp, kind="violin", cut=0,
-                        legend=False, margin_titles=True)
+                         hue="Estimation Method",
+                         col="Inter Event Interval", row="# Events",
+                         data=df_tmp, kind="violin", cut=0,
+                         legend=False, margin_titles=True)
 
         g2.fig.suptitle("CNR: {}, AVNR: {}".format(cnr, avnr), y=1.02)
 
@@ -156,8 +156,8 @@ pwr_null_collector = {
 for est in ["lsa", "lss"]:
     for iti_mean in [2.0, 4.0, 6.0, 8.0]:
         for n_trials in [15, 30, 45, 60]:
-            for cnr in [1, 10]:
-                for avnr in [1, 10]:
+            for cnr in [1, 2]:
+                for avnr in [1, 2]:
                     for tgt_corr in [(0.0, 0.0),
                                      (0.1, 0.1),
                                      (0.2, 0.2),
@@ -194,32 +194,57 @@ rename_dict = {
     'n_events': 'Number of Events',
     'cnr': 'CNR',
     'avnr': 'AVNR',
-    'power': 'False Positive Rate'}
+    'power': 'False Positive Rate (%)'}
 pwr_null_summary_df.rename(rename_dict, axis=1, inplace=True)
 
 #%%
 g = sns.catplot(
     kind='bar', x='Inter Event Interval (seconds)',
-    y='False Positive Rate', hue='Estimator',
+    y='False Positive Rate (%)', hue='Estimator',
     col='Number of Events', row='CNR',
+    legend=False,
     data=pwr_null_summary_df.query("AVNR==1"))
 
+# set y_axis to have same range
+g.set(ylim=(0, 0.06))
+
+# add the red line to indicate 5% false positive rate
 g.fig.suptitle("AVNR=1", y=1.02)
 for ax in g.axes.ravel():
     ax.axhline(0.05, ls='--', color='red')
+
+
+# add numbers to each of the bars
+saf.show_values_on_bars(g.axes.flatten())
+
+# add a legend (changing title size was *tough*)
+g.add_legend(fontsize=30)
+g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
+
 g.fig.savefig('../outputs/avnr-1_fpr.png', bbox_inches='tight')
 
 #%%
 g = sns.catplot(
     kind='bar', x='Inter Event Interval (seconds)',
-    y='False Positive Rate', hue='Estimator',
-    col='Number of Events', row='CNR',
-    data=pwr_null_summary_df.query("AVNR==10"))
+    y='False Positive Rate (%)', hue='Estimator',
+    col='Number of Events', row='CNR', legend=False,
+    data=pwr_null_summary_df.query("AVNR==2"))
 
-g.fig.suptitle("AVNR=10", y=1.02)
+# set y_axis to have same range
+g.set(ylim=(0, 0.06))
+
+g.fig.suptitle("AVNR=2", y=1.02)
 for ax in g.axes.ravel():
     ax.axhline(0.05, ls='--', color='red')
-g.fig.savefig('../outputs/avnr-10_fpr.png', bbox_inches='tight')
+
+# add numbers to each of the bars
+saf.show_values_on_bars(g.axes.flatten())
+
+# add a legend (changing title size was *tough*)
+g.add_legend(fontsize=30)
+g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
+# save figure
+g.fig.savefig('../outputs/avnr-2_fpr.png', bbox_inches='tight')
 
 ###############################
 # Look at small difference (0.1)
@@ -237,8 +262,8 @@ pwr_null_collector = {
 for est in ["lsa", "lss"]:
     for iti_mean in [2.0, 4.0, 6.0, 8.0]:
         for n_trials in [15, 30, 45, 60]:
-            for cnr in [1, 10]:
-                for avnr in [1, 10]:
+            for cnr in [1, 2]:
+                for avnr in [1, 2]:
                     for tgt_corr in [(0.0, 0.1),
                                      (0.1, 0.2),
                                      (0.2, 0.3),
@@ -281,25 +306,47 @@ pwr_null_summary_df.rename(rename_dict, axis=1, inplace=True)
 g = sns.catplot(
     kind='bar', x='Inter Event Interval (seconds)',
     y='Power (% of significant ttests)', hue='Estimator',
-    col='Number of Events', row='CNR',
+    col='Number of Events', row='CNR', legend=False,
     data=pwr_null_summary_df.query("AVNR==1"))
+
+# set y_axis to have same range
+g.set(ylim=(0, 1))
 
 g.fig.suptitle("AVNR=1", y=1.02)
 for ax in g.axes.ravel():
     ax.axhline(0.80, ls='--', color='red')
+
+# add numbers to each of the bars
+saf.show_values_on_bars(g.axes.flatten())
+
+# add a legend (changing title size was *tough*)
+g.add_legend(fontsize=30)
+g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
+
 g.fig.savefig('../outputs/avnr-1_smalldiff.png', bbox_inches='tight')
 
 #%%
 g = sns.catplot(
     kind='bar', x='Inter Event Interval (seconds)',
     y='Power (% of significant ttests)', hue='Estimator',
-    col='Number of Events', row='CNR',
-    data=pwr_null_summary_df.query("AVNR==10"))
+    col='Number of Events', row='CNR', legend=False,
+    data=pwr_null_summary_df.query("AVNR==2"))
 
-g.fig.suptitle("AVNR=10", y=1.02)
+# set y_axis to have same range
+g.set(ylim=(0, 1))
+
+g.fig.suptitle("AVNR=2", y=1.02)
 for ax in g.axes.ravel():
     ax.axhline(0.80, ls='--', color='red')
-g.fig.savefig('../outputs/avnr-10_smalldiff.png', bbox_inches='tight')
+
+# add numbers to each of the bars
+saf.show_values_on_bars(g.axes.flatten())
+
+# add a legend (changing title size was *tough*)
+g.add_legend(fontsize=30)
+g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
+
+g.fig.savefig('../outputs/avnr-2_smalldiff.png', bbox_inches='tight')
 
 ################################
 # Look at large difference (0.3)
@@ -317,8 +364,8 @@ pwr_null_collector = {
 for est in ["lsa", "lss"]:
     for iti_mean in [2.0, 4.0, 6.0, 8.0]:
         for n_trials in [15, 30, 45, 60]:
-            for cnr in [1, 10]:
-                for avnr in [1, 10]:
+            for cnr in [1, 2]:
+                for avnr in [1, 2]:
                     for tgt_corr in [(0.0, 0.3),
                                      (0.1, 0.4),
                                      (0.2, 0.5),
@@ -359,25 +406,45 @@ pwr_null_summary_df.rename(rename_dict, axis=1, inplace=True)
 g = sns.catplot(
     kind='bar', x='Inter Event Interval (seconds)',
     y='Power (% of significant ttests)', hue='Estimator',
-    col='Number of Events', row='CNR',
+    col='Number of Events', row='CNR', legend=False,
     data=pwr_null_summary_df.query("AVNR==1"))
+
+# set y_axis to have same range
+g.set(ylim=(0, 1))
 
 g.fig.suptitle("AVNR=1", y=1.02)
 for ax in g.axes.ravel():
     ax.axhline(0.80, ls='--', color='red')
+
+# add numbers to each of the bars
+saf.show_values_on_bars(g.axes.flatten())
+
+# add a legend (changing title size was *tough*)
+g.add_legend(fontsize=30)
+g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
 g.fig.savefig('../outputs/avnr-1_largediff.png', bbox_inches='tight')
 
 #%%
 g = sns.catplot(
     kind='bar', x='Inter Event Interval (seconds)',
     y='Power (% of significant ttests)', hue='Estimator',
-    col='Number of Events', row='CNR',
+    col='Number of Events', row='CNR', legend=False,
     data=pwr_null_summary_df.query("AVNR==10"))
+
+# set y_axis to have same range
+g.set(ylim=(0, 1))
 
 g.fig.suptitle("AVNR=10", y=1.02)
 for ax in g.axes.ravel():
     ax.axhline(0.80, ls='--', color='red')
-g.fig.savefig('../outputs/avnr-10_largediff.png', bbox_inches='tight')
+
+# add numbers to each of the bars
+saf.show_values_on_bars(g.axes.flatten())
+
+# add a legend (changing title size was *tough*)
+g.add_legend(fontsize=30)
+g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
+g.fig.savefig('../outputs/avnr-2_largediff.png', bbox_inches='tight')
 
 ########################
 # SIMULATE ANALYZED TASK
@@ -439,18 +506,29 @@ rename_dict = {
     'estimator': 'Estimator',
     'cnr': 'CNR',
     'avnr': 'AVNR',
-    'power': 'False Positive Rate'}
+    'power': 'False Positive Rate (%)'}
 pwr_null_summary_df.rename(rename_dict, axis=1, inplace=True)
 
 #%%
 g = sns.catplot(
     kind='bar', x='CNR',
-    y='False Positive Rate', hue='Estimator',
-    col='AVNR',
+    y='False Positive Rate (%)', hue='Estimator',
+    col='AVNR', legend=False,
     data=pwr_null_summary_df)
+
+# set y_axis to have same range
+g.set(ylim=(0, 0.06))
 
 for ax in g.axes.ravel():
     ax.axhline(0.05, ls='--', color='red')
+
+# add numbers to each of the bars
+saf.show_values_on_bars(g.axes.flatten())
+
+# add a legend (changing title size was *tough*)
+g.add_legend(fontsize=30)
+g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
+
 g.fig.savefig('../outputs/taskswitch-switchXrepeat_fpr.png', bbox_inches='tight')
 
 #%%
@@ -462,8 +540,8 @@ pwr_null_collector = {
     'power': [],
 }
 for est in ["lsa", "lss"]:
-    for cnr in [1, 10]:
-        for avnr in [1, 10]:
+    for cnr in [1, 2]:
+        for avnr in [1, 2]:
             for tgt_corr in [(0.0, 0.0),
                              (0.1, 0.1),
                              (0.2, 0.2),
@@ -496,18 +574,29 @@ rename_dict = {
     'estimator': 'Estimator',
     'cnr': 'CNR',
     'avnr': 'AVNR',
-    'power': 'False Positive Rate'}
+    'power': 'False Positive Rate (%)'}
 pwr_null_summary_df.rename(rename_dict, axis=1, inplace=True)
 
 #%%
 g = sns.catplot(
     kind='bar', x='CNR',
-    y='False Positive Rate', hue='Estimator',
-    col='AVNR',
+    y='False Positive Rate (%)', hue='Estimator',
+    col='AVNR', legend=False,
     data=pwr_null_summary_df)
+
+# set y_axis to have same range
+g.set(ylim=(0, 0.06))
 
 for ax in g.axes.ravel():
     ax.axhline(0.05, ls='--', color='red')
+
+# add numbers to each of the bars
+saf.show_values_on_bars(g.axes.flatten())
+
+# add a legend (changing title size was *tough*)
+g.add_legend(fontsize=30)
+g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
+
 g.fig.savefig('../outputs/taskswitch-switchXsingle_fpr.png', bbox_inches='tight')
 
 ###############################
@@ -565,11 +654,22 @@ pwr_null_summary_df.rename(rename_dict, axis=1, inplace=True)
 g = sns.catplot(
     kind='bar', x='CNR',
     y='Power (% of significant ttests)', hue='Estimator',
-    col='AVNR',
+    col='AVNR', legend=False,
     data=pwr_null_summary_df)
+
+# set y_axis to have same range
+g.set(ylim=(0, 1))
 
 for ax in g.axes.ravel():
     ax.axhline(0.80, ls='--', color='red')
+
+# add numbers to each of the bars
+saf.show_values_on_bars(g.axes.flatten())
+
+# add a legend (changing title size was *tough*)
+g.add_legend(fontsize=30)
+g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
+
 g.fig.savefig('../outputs/taskswitch-switchXrepeat_smalldiff.png', bbox_inches='tight')
 
 
@@ -624,11 +724,22 @@ pwr_null_summary_df.rename(rename_dict, axis=1, inplace=True)
 g = sns.catplot(
     kind='bar', x='CNR',
     y='Power (% of significant ttests)', hue='Estimator',
-    col='AVNR',
+    col='AVNR', legend=False,
     data=pwr_null_summary_df)
+
+# set y_axis to have same range
+g.set(ylim=(0, 1))
 
 for ax in g.axes.ravel():
     ax.axhline(0.80, ls='--', color='red')
+
+# add numbers to each of the bars
+saf.show_values_on_bars(g.axes.flatten())
+
+# add a legend (changing title size was *tough*)
+g.add_legend(fontsize=30)
+g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
+
 g.fig.savefig('../outputs/taskswitch-switchXrepeat_largediff.png', bbox_inches='tight')
 
 
@@ -648,213 +759,213 @@ g.fig.savefig('../outputs/taskswitch-switchXrepeat_largediff.png', bbox_inches='
 ############
 # PLAYGROUND
 ############
-#%%
-tmp_rename['p_value'] = "p value"
-df_pwr_tmp = df_pwr.rename(columns=tmp_rename)
+# #%%
+# tmp_rename['p_value'] = "p value"
+# df_pwr_tmp = df_pwr.rename(columns=tmp_rename)
 
 
-def distplot_plus(x, sig_mag, trial_var, **kwargs):
-    txtstr = dedent(r"""lss pwr: {lss_pwr}
-lsa pwr: {lsa_pwr}""")
-    props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-    ax = sns.distplot(x, **kwargs)
-    ax.set_yticklabels([])
-    lss_pwr = np.array(pwr_collector[("lss", sig_mag.unique()[0], trial_var.unique()[0])]).mean()
-    lsa_pwr = np.array(pwr_collector[("lsa", sig_mag.unique()[0], trial_var.unique()[0])]).mean()
+# def distplot_plus(x, sig_mag, trial_var, **kwargs):
+#     txtstr = dedent(r"""lss pwr: {lss_pwr}
+# lsa pwr: {lsa_pwr}""")
+#     props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+#     ax = sns.distplot(x, **kwargs)
+#     ax.set_yticklabels([])
+#     lss_pwr = np.array(pwr_collector[("lss", sig_mag.unique()[0], trial_var.unique()[0])]).mean()
+#     lsa_pwr = np.array(pwr_collector[("lsa", sig_mag.unique()[0], trial_var.unique()[0])]).mean()
 
-    txtrepl = txtstr.format(lss_pwr=np.round(lss_pwr, 2),
-                            lsa_pwr=np.round(lsa_pwr, 2))
-    ax.text(0.25, 0.45, txtrepl, transform=ax.transAxes, fontsize=14,
-            verticalalignment='center',
-            horizontalalignment="left", bbox=props)
-    return ax
+#     txtrepl = txtstr.format(lss_pwr=np.round(lss_pwr, 2),
+#                             lsa_pwr=np.round(lsa_pwr, 2))
+#     ax.text(0.25, 0.45, txtrepl, transform=ax.transAxes, fontsize=14,
+#             verticalalignment='center',
+#             horizontalalignment="left", bbox=props)
+#     return ax
 
-g_fac = sns.FacetGrid(df_pwr_tmp, row="signal_magnitude", col="trial_var",
-                    hue="Estimation Method",
-                    hue_order=["lss", "lsa"], margin_titles=True,
-                    sharey=False)
+# g_fac = sns.FacetGrid(df_pwr_tmp, row="signal_magnitude", col="trial_var",
+#                     hue="Estimation Method",
+#                     hue_order=["lss", "lsa"], margin_titles=True,
+#                     sharey=False)
 
-g_hist = (g_fac.map(distplot_plus, "p value", "signal_magnitude", "trial_var", hist=True, bins=20))
-sg_hist_lgnd = g_hist.axes[0, 1]
-sg_hist_lgnd.legend()
-
-
-# g_hist.savefig('../outputs/snr-{}_trial_noise-{}_simplified_pwr.png', dpi=400)
-g_hist.savefig('../outputs/diff-small_task-taskswitch_simplified_pwr.svg')
-
-#%%
-# use real data
-events_df = pd.read_csv(
-    'data/test_bold/bids/sub-GE120012/ses-pre/func/sub-GE120012_ses-pre_task-taskswitch_events.tsv', sep='\t'
-)
+# g_hist = (g_fac.map(distplot_plus, "p value", "signal_magnitude", "trial_var", hist=True, bins=20))
+# sg_hist_lgnd = g_hist.axes[0, 1]
+# sg_hist_lgnd.legend()
 
 
-#%%
-if "switch" in events_df.columns:
-    events_df.loc[:, "switch"].replace({0: "single",
-                                        9: "single",
-                                        1: "repeat",
-                                        2: "switch"},
-                                       inplace=True)
-    events_df.rename(
-        columns={"trial_type": "stim_color",
-                 "switch": "trial_type"},
-        inplace=True)
+# # g_hist.savefig('../outputs/snr-{}_trial_noise-{}_simplified_pwr.png', dpi=400)
+# g_hist.savefig('../outputs/diff-small_task-taskswitch_simplified_pwr.svg')
 
-#%%
-events_df.to_csv('data/test_bold/mod.tsv', sep='\t', index=False)
+# #%%
+# # use real data
+# events_df = pd.read_csv(
+#     'data/test_bold/bids/sub-GE120012/ses-pre/func/sub-GE120012_ses-pre_task-taskswitch_events.tsv', sep='\t'
+# )
 
 
-#%%
-fname_template = os.path.join(
-    "data",
-    "test_bold",
-    "bids",
-    "derivatives",
-    "nibetaseries",
-    "sub-GE120012",
-    "ses-pre",
-    "func",
-    "sub-GE120012_ses-pre_task-taskswitch_space-MNI152NLin2009cAsym_desc-{cond}_correlation.tsv"
-)
+# #%%
+# if "switch" in events_df.columns:
+#     events_df.loc[:, "switch"].replace({0: "single",
+#                                         9: "single",
+#                                         1: "repeat",
+#                                         2: "switch"},
+#                                        inplace=True)
+#     events_df.rename(
+#         columns={"trial_type": "stim_color",
+#                  "switch": "trial_type"},
+#         inplace=True)
+
+# #%%
+# events_df.to_csv('data/test_bold/mod.tsv', sep='\t', index=False)
 
 
-def rename_index(x):
-    res = x.split('_')
-    network_index = res.pop(1)
-    roi_index = '_'.join(res)
-
-    return network_index, roi_index
-
-
-df_dict = {}
-for cond in ["switch", "repeat", "single"]:
-    df_dict[cond] = pd.read_csv(
-        fname_template.format(cond=cond),
-        sep="\t", index_col=0)
-    df_dict[cond].index = pd.MultiIndex.from_tuples(
-        list(df_dict[cond].index.map(rename_index)))
-    df_dict[cond].columns = pd.MultiIndex.from_tuples(
-        list(df_dict[cond].columns.map(rename_index)))
-    df_dict[cond].sort_index(axis=0, inplace=True)
-    df_dict[cond].sort_index(axis=1, inplace=True)
-    df_dict[cond] = df_dict[cond].mean(level=0, axis=0).mean(level=0, axis=1)
+# #%%
+# fname_template = os.path.join(
+#     "data",
+#     "test_bold",
+#     "bids",
+#     "derivatives",
+#     "nibetaseries",
+#     "sub-GE120012",
+#     "ses-pre",
+#     "func",
+#     "sub-GE120012_ses-pre_task-taskswitch_space-MNI152NLin2009cAsym_desc-{cond}_correlation.tsv"
+# )
 
 
-#%%
-sns.heatmap(df_dict['switch'] - df_dict['repeat'])
+# def rename_index(x):
+#     res = x.split('_')
+#     network_index = res.pop(1)
+#     roi_index = '_'.join(res)
 
-#%%
-for cond in ["switch", "repeat", "single"]:
-    sns.heatmap(df_dict[cond], vmax=1.2)
-    plt.show()
-
-#%%
-df_dict[cond].describe()
-
-#%%
-df_sub = df_dict['switch'] - df_dict['repeat']
-ax = sns.heatmap(
-    df_sub,
-    cmap='viridis',
-    )
-
-ax.set_title(
-    label="Switch - Repeat",
-    fontdict={"fontsize": 20, "fontweight": "heavy"})
-cbar = ax.collections[0].colorbar
-cbar.set_label('Correlation Difference\n(Fisher r-z)',
-               fontsize=15,
-               fontweight="heavy")
-cbar.ax.tick_params(labelsize=13)
-
-ax.set_xticklabels(ax.get_xticklabels(), fontsize=13)
-ax.set_yticklabels(ax.get_yticklabels(), fontsize=9)
-plt.tight_layout()
-ax.figure.savefig("outputs/beta_series_contrast_switch-repeat.svg")
-ax.figure.savefig("outputs/beta_series_contrast_switch-repeat.png", dpi=400)
-#%%
-# get the bold simulation results
-bold_sim_file = os.path.join(
-    "data",
-    "test_bold",
-    "bold_simulation.tsv")
-df_bold_sim = pd.read_csv(bold_sim_file, sep="\t")
-df_bold_sim.head()
-
-#%%
-df_bold_sim.loc[df_bold_sim['correlation_observed'] == 1, 'correlation_observed'] -= 0.0001
-df_bold_sim.loc[df_bold_sim['correlation_observed'] == -1, 'correlation_observed'] += 0.0001
-df_bold_sim['corr_obs_trans'] = np.arctanh(df_bold_sim['correlation_observed'])
-df_bold_sim['corr_obs_trans_clip'] = np.clip(df_bold_sim['corr_obs_trans'], -1.5, 1.5)
-
-#%%
-bold_pwr_dict = {"method": [], "power": [], "participants": []}
-for method in ["lsa", "lss"]:
-    # from 5 participants to 40
-    for participants in range(5, 41):
-        bold_test_df, bold_pwr = test_power(
-            df_bold_sim,
-            estimation_method=method,
-            iti_mean=18.84,
-            n_trials=50,
-            signal_magnitude=1.7502511308736108,
-            correlation_tgt1=0.0,
-            correlation_tgt2=0.1,
-            sample_size=participants)
-        bold_pwr_dict['method'].append(method)
-        bold_pwr_dict['participants'].append(participants)
-        bold_pwr_dict['power'].append(bold_pwr)
-
-bold_pwr_df = pd.DataFrame.from_dict(bold_pwr_dict)
-bold_pwr_df.head()
-
-#%%
-pp = sns.lineplot(
-    x='participants',
-    y='power',
-    hue='method',
-    legend="brief",
-    hue_order=["lss", "lsa"],
-    data=bold_pwr_df)
-
-lgnd = pp.legend()
-lgnd.get_texts()[0].set_text('')
-for txt in lgnd.get_texts()[1:]:
-    txt.set_fontsize(15)
-lgnd.set_title("Estimation Method", prop={'size': 15, 'weight': 'heavy'})
-pp.set_xlabel("# of Participants",
-              fontdict={'fontsize': 15, 'fontweight': 'heavy'})
-pp.set_ylabel("Power",
-              fontdict={'fontsize': 15, 'fontweight': 'heavy'})
-pp.axhline(0.8, linestyle='--')
-plt.tight_layout()
-pp.figure.savefig('outputs/power_plot.svg')
-pp.figure.savefig('outputs/power_plot.png', dpi=400)
-
-#%%
-stat_collector = []
-pwr_collector = {}
-for est in ["lsa", "lss"]:
-    test_df, pwr = test_power(
-                    df, estimation_method=est, n_trials=50,
-                    iti_mean=18.84, signal_magnitude=1,
-                    correlation_tgt1=0.1, correlation_tgt2=0.4,
-                    trial_type1="repeat", trial_type2="switch",
-                    sample_size=30, trial_var=1)
-    stat_collector.append(test_df)
-    pwr_collector[est] = pwr
+#     return network_index, roi_index
 
 
-# %%
-tips = sns.load_dataset("tips")
-from scipy import stats
-def qqplot(x, y, **kwargs):
-    _, xr = stats.probplot(x, fit=False)
-    _, yr = stats.probplot(y, fit=False)
-    plt.scatter(xr, yr, **kwargs)
+# df_dict = {}
+# for cond in ["switch", "repeat", "single"]:
+#     df_dict[cond] = pd.read_csv(
+#         fname_template.format(cond=cond),
+#         sep="\t", index_col=0)
+#     df_dict[cond].index = pd.MultiIndex.from_tuples(
+#         list(df_dict[cond].index.map(rename_index)))
+#     df_dict[cond].columns = pd.MultiIndex.from_tuples(
+#         list(df_dict[cond].columns.map(rename_index)))
+#     df_dict[cond].sort_index(axis=0, inplace=True)
+#     df_dict[cond].sort_index(axis=1, inplace=True)
+#     df_dict[cond] = df_dict[cond].mean(level=0, axis=0).mean(level=0, axis=1)
 
-g = sns.FacetGrid(tips, col="smoker", height=4)
-g.map(qqplot, "total_bill", "tip");
 
-# %%
+# #%%
+# sns.heatmap(df_dict['switch'] - df_dict['repeat'])
+
+# #%%
+# for cond in ["switch", "repeat", "single"]:
+#     sns.heatmap(df_dict[cond], vmax=1.2)
+#     plt.show()
+
+# #%%
+# df_dict[cond].describe()
+
+# #%%
+# df_sub = df_dict['switch'] - df_dict['repeat']
+# ax = sns.heatmap(
+#     df_sub,
+#     cmap='viridis',
+#     )
+
+# ax.set_title(
+#     label="Switch - Repeat",
+#     fontdict={"fontsize": 20, "fontweight": "heavy"})
+# cbar = ax.collections[0].colorbar
+# cbar.set_label('Correlation Difference\n(Fisher r-z)',
+#                fontsize=15,
+#                fontweight="heavy")
+# cbar.ax.tick_params(labelsize=13)
+
+# ax.set_xticklabels(ax.get_xticklabels(), fontsize=13)
+# ax.set_yticklabels(ax.get_yticklabels(), fontsize=9)
+# plt.tight_layout()
+# ax.figure.savefig("outputs/beta_series_contrast_switch-repeat.svg")
+# ax.figure.savefig("outputs/beta_series_contrast_switch-repeat.png", dpi=400)
+# #%%
+# # get the bold simulation results
+# bold_sim_file = os.path.join(
+#     "data",
+#     "test_bold",
+#     "bold_simulation.tsv")
+# df_bold_sim = pd.read_csv(bold_sim_file, sep="\t")
+# df_bold_sim.head()
+
+# #%%
+# df_bold_sim.loc[df_bold_sim['correlation_observed'] == 1, 'correlation_observed'] -= 0.0001
+# df_bold_sim.loc[df_bold_sim['correlation_observed'] == -1, 'correlation_observed'] += 0.0001
+# df_bold_sim['corr_obs_trans'] = np.arctanh(df_bold_sim['correlation_observed'])
+# df_bold_sim['corr_obs_trans_clip'] = np.clip(df_bold_sim['corr_obs_trans'], -1.5, 1.5)
+
+# #%%
+# bold_pwr_dict = {"method": [], "power": [], "participants": []}
+# for method in ["lsa", "lss"]:
+#     # from 5 participants to 40
+#     for participants in range(5, 41):
+#         bold_test_df, bold_pwr = test_power(
+#             df_bold_sim,
+#             estimation_method=method,
+#             iti_mean=18.84,
+#             n_trials=50,
+#             signal_magnitude=1.7502511308736108,
+#             correlation_tgt1=0.0,
+#             correlation_tgt2=0.1,
+#             sample_size=participants)
+#         bold_pwr_dict['method'].append(method)
+#         bold_pwr_dict['participants'].append(participants)
+#         bold_pwr_dict['power'].append(bold_pwr)
+
+# bold_pwr_df = pd.DataFrame.from_dict(bold_pwr_dict)
+# bold_pwr_df.head()
+
+# #%%
+# pp = sns.lineplot(
+#     x='participants',
+#     y='power',
+#     hue='method',
+#     legend="brief",
+#     hue_order=["lss", "lsa"],
+#     data=bold_pwr_df)
+
+# lgnd = pp.legend()
+# lgnd.get_texts()[0].set_text('')
+# for txt in lgnd.get_texts()[1:]:
+#     txt.set_fontsize(15)
+# lgnd.set_title("Estimation Method", prop={'size': 15, 'weight': 'heavy'})
+# pp.set_xlabel("# of Participants",
+#               fontdict={'fontsize': 15, 'fontweight': 'heavy'})
+# pp.set_ylabel("Power",
+#               fontdict={'fontsize': 15, 'fontweight': 'heavy'})
+# pp.axhline(0.8, linestyle='--')
+# plt.tight_layout()
+# pp.figure.savefig('outputs/power_plot.svg')
+# pp.figure.savefig('outputs/power_plot.png', dpi=400)
+
+# #%%
+# stat_collector = []
+# pwr_collector = {}
+# for est in ["lsa", "lss"]:
+#     test_df, pwr = test_power(
+#                     df, estimation_method=est, n_trials=50,
+#                     iti_mean=18.84, signal_magnitude=1,
+#                     correlation_tgt1=0.1, correlation_tgt2=0.4,
+#                     trial_type1="repeat", trial_type2="switch",
+#                     sample_size=30, trial_var=1)
+#     stat_collector.append(test_df)
+#     pwr_collector[est] = pwr
+
+
+# # %%
+# tips = sns.load_dataset("tips")
+# from scipy import stats
+# def qqplot(x, y, **kwargs):
+#     _, xr = stats.probplot(x, fit=False)
+#     _, yr = stats.probplot(y, fit=False)
+#     plt.scatter(xr, yr, **kwargs)
+
+# g = sns.FacetGrid(tips, col="smoker", height=4)
+# g.map(qqplot, "total_bill", "tip");
+
+# # %%
