@@ -62,7 +62,7 @@ for cnr in cnrs:
         for sg in g2.axes.ravel():
             saf.add_targets(sg, targets=z_targets)
 
-    g2.savefig("../outputs/cnr-{cnr}_avnr-{avnr}_simulations.svg".format(cnr=cnr, avnr=avnr))
+    g2.savefig("../outputs/cnr-{cnr}_avnr-{avnr}_simulations.eps".format(cnr=cnr, avnr=avnr))
 
 
 #%%
@@ -110,32 +110,9 @@ for cnr in cnrs:
         lgnd_sg.legend(title="Estimation Method",
                     loc="lower left")
 
-        # g2.savefig('../outputs/snr-{snr}_trial_noise-{tng}_simplified_simulation.png', dpi=600)
-        g2.savefig('../outputs/cnr-{cnr}_avnr-{avnr}_simplified_simulation.svg'.format(
+        # g2.savefig('../outputs/snr-{snr}_trial_noise-{tng}_simplified_simulation.eps', dpi=600)
+        g2.savefig('../outputs/cnr-{cnr}_avnr-{avnr}_simplified_simulation.eps'.format(
             cnr=cnr, avnr=avnr), bbox_inches='tight')
-
-#%%
-# test the null (appears to hold up within nominal error rates)
-short_lsa_query = ('(estimation_method == "lsa") &'
-                   '(iti_mean == 4.0) &'
-                   '(n_trials == 30) &'
-                   '(correlation_target == 0.2) &'
-                   '(cnr == 1) &'
-                   '(trial_noise_group == 0)')
-df_short_lsa = df.query(short_lsa_query)
-test_collector = {"t": [], "p": []}
-for _ in range(10000):
-    sample = np.random.choice(df_short_lsa['corr_obs_trans'], size=(30, 2),
-                              replace=False)
-    group1 = sample[:, 0]
-    group2 = sample[:, 1]
-    t, p = ttest_ind(group1, group2)
-    test_collector["t"].append(t)
-    test_collector["p"].append(p)
-
-test_df = pd.DataFrame.from_dict(test_collector)
-
-sns.distplot(test_df["p"], bins=20, kde=False)
 
 
 #############################
@@ -221,7 +198,7 @@ saf.show_values_on_bars(g.axes.flatten())
 g.add_legend(fontsize=30)
 g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
 
-g.fig.savefig('../outputs/avnr-1_fpr.png', bbox_inches='tight')
+g.fig.savefig('../outputs/avnr-1_fpr.eps', bbox_inches='tight')
 
 #%%
 g = sns.catplot(
@@ -244,7 +221,7 @@ saf.show_values_on_bars(g.axes.flatten())
 g.add_legend(fontsize=30)
 g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
 # save figure
-g.fig.savefig('../outputs/avnr-2_fpr.png', bbox_inches='tight')
+g.fig.savefig('../outputs/avnr-2_fpr.eps', bbox_inches='tight')
 
 ###############################
 # Look at small difference (0.1)
@@ -323,7 +300,7 @@ saf.show_values_on_bars(g.axes.flatten())
 g.add_legend(fontsize=30)
 g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
 
-g.fig.savefig('../outputs/avnr-1_smalldiff.png', bbox_inches='tight')
+g.fig.savefig('../outputs/avnr-1_smalldiff.eps', bbox_inches='tight')
 
 #%%
 g = sns.catplot(
@@ -346,7 +323,7 @@ saf.show_values_on_bars(g.axes.flatten())
 g.add_legend(fontsize=30)
 g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
 
-g.fig.savefig('../outputs/avnr-2_smalldiff.png', bbox_inches='tight')
+g.fig.savefig('../outputs/avnr-2_smalldiff.eps', bbox_inches='tight')
 
 ################################
 # Look at large difference (0.3)
@@ -422,14 +399,14 @@ saf.show_values_on_bars(g.axes.flatten())
 # add a legend (changing title size was *tough*)
 g.add_legend(fontsize=30)
 g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
-g.fig.savefig('../outputs/avnr-1_largediff.png', bbox_inches='tight')
+g.fig.savefig('../outputs/avnr-1_largediff.eps', bbox_inches='tight')
 
 #%%
 g = sns.catplot(
     kind='bar', x='Inter Event Interval (seconds)',
     y='Power (% of significant ttests)', hue='Estimator',
     col='Number of Events', row='CNR', legend=False,
-    data=pwr_null_summary_df.query("AVNR==10"))
+    data=pwr_null_summary_df.query("AVNR==2"))
 
 # set y_axis to have same range
 g.set(ylim=(0, 1))
@@ -444,7 +421,7 @@ saf.show_values_on_bars(g.axes.flatten())
 # add a legend (changing title size was *tough*)
 g.add_legend(fontsize=30)
 g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
-g.fig.savefig('../outputs/avnr-2_largediff.png', bbox_inches='tight')
+g.fig.savefig('../outputs/avnr-2_largediff.eps', bbox_inches='tight')
 
 ########################
 # SIMULATE ANALYZED TASK
@@ -529,7 +506,7 @@ saf.show_values_on_bars(g.axes.flatten())
 g.add_legend(fontsize=30)
 g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
 
-g.fig.savefig('../outputs/taskswitch-switchXrepeat_fpr.png', bbox_inches='tight')
+g.fig.savefig('../outputs/taskswitch-switchXrepeat_fpr.eps', bbox_inches='tight')
 
 #%%
 stat_null_collector = []
@@ -597,7 +574,7 @@ saf.show_values_on_bars(g.axes.flatten())
 g.add_legend(fontsize=30)
 g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
 
-g.fig.savefig('../outputs/taskswitch-switchXsingle_fpr.png', bbox_inches='tight')
+g.fig.savefig('../outputs/taskswitch-switchXsingle_fpr.eps', bbox_inches='tight')
 
 ###############################
 # Look at small difference (0.1)
@@ -670,7 +647,7 @@ saf.show_values_on_bars(g.axes.flatten())
 g.add_legend(fontsize=30)
 g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
 
-g.fig.savefig('../outputs/taskswitch-switchXrepeat_smalldiff.png', bbox_inches='tight')
+g.fig.savefig('../outputs/taskswitch-switchXrepeat_smalldiff.eps', bbox_inches='tight')
 
 
 ###############################
@@ -740,7 +717,7 @@ saf.show_values_on_bars(g.axes.flatten())
 g.add_legend(fontsize=30)
 g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
 
-g.fig.savefig('../outputs/taskswitch-switchXrepeat_largediff.png', bbox_inches='tight')
+g.fig.savefig('../outputs/taskswitch-switchXrepeat_largediff.eps', bbox_inches='tight')
 
 
 
@@ -790,8 +767,8 @@ g.fig.savefig('../outputs/taskswitch-switchXrepeat_largediff.png', bbox_inches='
 # sg_hist_lgnd.legend()
 
 
-# # g_hist.savefig('../outputs/snr-{}_trial_noise-{}_simplified_pwr.png', dpi=400)
-# g_hist.savefig('../outputs/diff-small_task-taskswitch_simplified_pwr.svg')
+# # g_hist.savefig('../outputs/snr-{}_trial_noise-{}_simplified_pwr.eps', dpi=400)
+# g_hist.savefig('../outputs/diff-small_task-taskswitch_simplified_pwr.eps')
 
 # #%%
 # # use real data
@@ -882,8 +859,8 @@ g.fig.savefig('../outputs/taskswitch-switchXrepeat_largediff.png', bbox_inches='
 # ax.set_xticklabels(ax.get_xticklabels(), fontsize=13)
 # ax.set_yticklabels(ax.get_yticklabels(), fontsize=9)
 # plt.tight_layout()
-# ax.figure.savefig("outputs/beta_series_contrast_switch-repeat.svg")
-# ax.figure.savefig("outputs/beta_series_contrast_switch-repeat.png", dpi=400)
+# ax.figure.savefig("outputs/beta_series_contrast_switch-repeat.eps")
+# ax.figure.savefig("outputs/beta_series_contrast_switch-repeat.eps", dpi=400)
 # #%%
 # # get the bold simulation results
 # bold_sim_file = os.path.join(
@@ -940,8 +917,8 @@ g.fig.savefig('../outputs/taskswitch-switchXrepeat_largediff.png', bbox_inches='
 #               fontdict={'fontsize': 15, 'fontweight': 'heavy'})
 # pp.axhline(0.8, linestyle='--')
 # plt.tight_layout()
-# pp.figure.savefig('outputs/power_plot.svg')
-# pp.figure.savefig('outputs/power_plot.png', dpi=400)
+# pp.figure.savefig('outputs/power_plot.eps')
+# pp.figure.savefig('outputs/power_plot.eps', dpi=400)
 
 # #%%
 # stat_collector = []
