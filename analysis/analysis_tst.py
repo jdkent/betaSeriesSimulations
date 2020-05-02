@@ -1,7 +1,9 @@
 
 #%%
 import os
+from subprocess import call
 from textwrap import dedent
+
 import seaborn as sns
 import pandas as pd
 import numpy as np
@@ -13,7 +15,10 @@ sns.set(style="ticks", rc={"lines.linewidth": 3.0})
 sns.set(font_scale=1.3)
 sns.set_style({'axes.grid': False})
 # plt.style.use("analysis/gray_background.mplstyle")
-
+def save_eps(fig, fname):
+    fig.savefig(fname + '.pdf', bbox_inches='tight')
+    call(["pdf2ps", fname + '.pdf', fname + '.eps'])
+    os.remove(fname + '.pdf')
 #%%
 import importlib
 importlib.reload(saf)
@@ -34,6 +39,7 @@ g = sns.violinplot(x="correlation_target", y="corr_obs_trans_clip",
                    hue="estimation_method",
                    cut=0, data=df)
 g.axes.legend(loc='lower right')
+
 
 
 #%%
@@ -62,7 +68,7 @@ for cnr in cnrs:
         for sg in g2.axes.ravel():
             saf.add_targets(sg, targets=z_targets)
 
-    g2.savefig("../outputs/cnr-{cnr}_avnr-{avnr}_simulations.eps".format(cnr=cnr, avnr=avnr))
+    save_eps(g2, "../outputs/cnr-{cnr}_avnr-{avnr}_simulations".format(cnr=cnr, avnr=avnr))
 
 
 #%%
@@ -198,7 +204,8 @@ saf.show_values_on_bars(g.axes.flatten())
 g.add_legend(fontsize=30)
 g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
 
-g.fig.savefig('../outputs/avnr-1_fpr.eps', bbox_inches='tight')
+save_eps(g.fig, '../outputs/avnr-1_fpr')
+
 
 #%%
 g = sns.catplot(
@@ -221,7 +228,7 @@ saf.show_values_on_bars(g.axes.flatten())
 g.add_legend(fontsize=30)
 g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
 # save figure
-g.fig.savefig('../outputs/avnr-2_fpr.eps', bbox_inches='tight')
+save_eps(g.fig, '../outputs/avnr-2_fpr')
 
 ###############################
 # Look at small difference (0.1)
@@ -300,7 +307,7 @@ saf.show_values_on_bars(g.axes.flatten())
 g.add_legend(fontsize=30)
 g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
 
-g.fig.savefig('../outputs/avnr-1_smalldiff.eps', bbox_inches='tight')
+save_eps(g.fig, '../outputs/avnr-1_smalldiff')
 
 #%%
 g = sns.catplot(
@@ -323,7 +330,7 @@ saf.show_values_on_bars(g.axes.flatten())
 g.add_legend(fontsize=30)
 g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
 
-g.fig.savefig('../outputs/avnr-2_smalldiff.eps', bbox_inches='tight')
+save_eps(g.fig, '../outputs/avnr-2_smalldiff')
 
 ################################
 # Look at large difference (0.3)
@@ -506,7 +513,8 @@ saf.show_values_on_bars(g.axes.flatten())
 g.add_legend(fontsize=30)
 g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
 
-g.fig.savefig('../outputs/taskswitch-switchXrepeat_fpr.eps', bbox_inches='tight')
+save_eps(g.fig, '../outputs/taskswitch-switchXrepeat_fpr')
+
 
 #%%
 stat_null_collector = []
@@ -574,7 +582,7 @@ saf.show_values_on_bars(g.axes.flatten())
 g.add_legend(fontsize=30)
 g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
 
-g.fig.savefig('../outputs/taskswitch-switchXsingle_fpr.eps', bbox_inches='tight')
+save_eps(g.fig, '../outputs/taskswitch-switchXsingle_fpr')
 
 ###############################
 # Look at small difference (0.1)
@@ -647,8 +655,7 @@ saf.show_values_on_bars(g.axes.flatten())
 g.add_legend(fontsize=30)
 g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
 
-g.fig.savefig('../outputs/taskswitch-switchXrepeat_smalldiff.eps', bbox_inches='tight')
-
+save_eps(g.fig, '../outputs/taskswitch-switchXrepeat_smalldiff')
 
 ###############################
 # Look at large difference (0.3)
