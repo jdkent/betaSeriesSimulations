@@ -726,18 +726,83 @@ g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
 
 g.fig.savefig('../outputs/taskswitch-switchXrepeat_largediff.eps', bbox_inches='tight')
 
+#########
+# How many participants are required for 80% power?
+#########
+#%%
+bold_pwr_dict = {
+    "method": [],
+    "power": [],
+    "participants": [],
+    "cnr": [],
+    "avnr": [],
+    }
+for method in ["lsa", "lss"]:
+    # from 5 participants to 40
+    for participants in range(5, 61):
+        for tgt_corr in [(0.0, 0.1),
+                         (0.1, 0.2),
+                         (0.2, 0.3),
+                         (0.3, 0.4),
+                         (0.4, 0.5),
+                         (0.5, 0.6),
+                         (0.6, 0.7),
+                         (0.7, 0.8),
+                         (0.8, 0.9)]:
+            bold_test_df, bold_pwr = saf.test_power(
+                df,
+                estimation_method=method,
+                iti_mean=18.84,
+                n_trials=50,
+                signal_magnitude=2,
+                trial_var=2,
+                correlation_tgt1=tgt_corr[0],
+                correlation_tgt2=tgt_corr[1],
+                trial_type1='repeat',
+                trial_type2='switch',
+                sample_size=participants,
+                simulations=1112)
+            bold_pwr_dict['method'].append(method)
+            bold_pwr_dict['participants'].append(participants)
+            bold_pwr_dict['power'].append(bold_pwr)
+            bold_pwr_dict['cnr'].append(2)
+            bold_pwr_dict['avnr'].append(2)
 
+#%%
+bold_pwr_df = pd.DataFrame.from_dict(bold_pwr_dict)
+bold_pwr_df['power'] = bold_pwr_df['power'] * 100
+bold_pwr_df.head()
 
+#%%
+bold_pwr_df['power']
+fig, ax = plt.subplots()
+sns.lineplot(
+    x='participants',
+    y='power',
+    hue='method',
+    legend="brief",
+    hue_order=["lss", "lsa"],
+    ax=ax,
+    err_style=None,
+    data=bold_pwr_df)
 
+ax.axhline(80, ls='--', color='red')
 
+lss_line = ax.get_lines()[0]
+lsa_line = ax.get_lines()[1]
+lss_line.set_linewidth(4)
+lsa_line.set_linewidth(4)
+lss_80_power_idx = np.argmax(lss_line.get_data()[1] > 80)
+lss_80_power = line.get_data()[0][lss_80_power_idx]
 
+ax.axvline(lss_80_power, ls='--', color=lss_line.get_color())
+ax.set_xlim(5, 60)
+ax.set_xlabel("# of Participants", weight="heavy")
+ax.set_ylabel("Power (%)", weight="heavy")
 
+ax.annotate("80% Power", (30, 81))
 
-
-
-
-
-
+save_eps(fig, '../outputs/taskswitch-switchXrepeat_smalldiffparticipants')
 
 
 ############
@@ -953,3 +1018,6 @@ g.fig.savefig('../outputs/taskswitch-switchXrepeat_largediff.eps', bbox_inches='
 # g.map(qqplot, "total_bill", "tip");
 
 # # %%
+
+
+# %%
