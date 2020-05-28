@@ -781,7 +781,7 @@ sns.lineplot(
     y='power',
     hue='method',
     legend="brief",
-    hue_order=["lss", "lsa"],
+    hue_order=["lsa", "lss"],
     ax=ax,
     err_style=None,
     data=bold_pwr_df)
@@ -793,7 +793,7 @@ lsa_line = ax.get_lines()[1]
 lss_line.set_linewidth(4)
 lsa_line.set_linewidth(4)
 lss_80_power_idx = np.argmax(lss_line.get_data()[1] > 80)
-lss_80_power = line.get_data()[0][lss_80_power_idx]
+lss_80_power = lss_line.get_data()[0][lss_80_power_idx]
 
 ax.axvline(lss_80_power, ls='--', color=lss_line.get_color())
 ax.set_xlim(5, 60)
