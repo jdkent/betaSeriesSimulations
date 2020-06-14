@@ -5,12 +5,15 @@ set -e
 # Generate Dockerfile.
 generate_docker() {
   docker run --rm kaczmarj/neurodocker:master generate docker \
-    --base=codercom/code-server:2.1698 \
+    --base=codercom/code-server:3.4.1 \
     --pkg-manager=apt \
     --user=coder \
     --workdir="/home/coder" \
     --env "SHELL=/bin/bash" \
     --copy . /home/coder/project \
+    --user="root" \
+    --run 'chown -R coder /home/coder/project' \
+    --user="coder" \
     --miniconda version=4.7.12 \
                 create_env='betaseries_simulation' \
                 yaml_file='/home/coder/project/environment.yml' \
@@ -20,7 +23,8 @@ generate_docker() {
            rm -rf /home/coder/brainiak" \
     --run ". activate betaseries_simulation && pip install -e /home/coder/project" \
     --run 'code-server --install-extension eamodio.gitlens && code-server --install-extension ms-python.python' \
-    --entrypoint 'code-server --auth none /home/coder/project'
+    --expose 8080 \
+    --entrypoint 'code-server --auth none --host 0.0.0.0 /home/coder/project'
 
 }
 
