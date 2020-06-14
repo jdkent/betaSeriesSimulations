@@ -9,6 +9,9 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import ttest_ind, ttest_1samp
+from statsmodels.formula.api import ols
+import statsmodels.api as sm
+from patsy.contrasts import ContrastMatrix
 
 import sim_analysis_functions as saf
 sns.set(style="ticks", rc={"lines.linewidth": 3.0})
@@ -22,6 +25,28 @@ def save_eps(fig, fname):
 #%%
 import importlib
 importlib.reload(saf)
+
+#%%
+# define simple coding
+def _name_levels(prefix, levels):
+    return ["[%s%s]" % (prefix, level) for level in levels]
+
+class Simple(object):
+    def _simple_contrast(self, levels):
+        nlevels = len(levels)
+        contr = -1./nlevels * np.ones((nlevels, nlevels-1))
+        contr[1:][np.diag_indices(nlevels-1)] = (nlevels-1.)/nlevels
+        return contr
+
+    def code_with_intercept(self, levels):
+        contrast = np.column_stack((np.ones(len(levels)),
+                                    self._simple_contrast(levels)))
+        return ContrastMatrix(contrast, _name_levels("Simp.", levels))
+
+    def code_without_intercept(self, levels):
+        contrast = self._simple_contrast(levels)
+        return ContrastMatrix(contrast, _name_levels("Simp.", levels[:-1]))
+
 
 #%%
 df = pd.read_csv('../simulation_200_real_params.tsv', sep='\t')
@@ -39,7 +64,6 @@ g = sns.violinplot(x="correlation_target", y="corr_obs_trans_clip",
                    hue="estimation_method",
                    cut=0, data=df)
 g.axes.legend(loc='lower right')
-
 
 
 #%%
@@ -230,6 +254,11 @@ g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
 # save figure
 save_eps(g.fig, '../outputs/avnr-2_fpr')
 
+#%%
+# statistical evaluation
+simulation_lm = ols('t_value ~ C(cnr, Treatment(reference=1))*C(avnr, Treatment(reference=1))*C(estimation_method, Treatment(reference="lsa"))', data=df_null_pwr).fit()
+simulation_lm.summary()
+
 ###############################
 # Look at small difference (0.1)
 ###############################
@@ -331,6 +360,42 @@ g.add_legend(fontsize=30)
 g._legend.set_title('Estimator', prop={'size': 20, 'weight': 'heavy'})
 
 save_eps(g.fig, '../outputs/avnr-2_smalldiff')
+
+#%%
+# statistical evaluation
+
+# is there a main effect of CNR/AVNR and do they interact with/each other ?
+cnr_avnr_lm = ols(
+    ('t_value ~ '
+     'C(cnr, Treatment(reference=1)) * '
+     'C(avnr, Treatment(reference=1)) + '
+     'C(estimation_method, Simple) + '
+     'C(iti_mean, Simple) + '
+     'C(n_trials, Simple)'), data=df_null_pwr).fit()
+cnr_avnr_lm.summary()
+
+#%%
+# what is the main effect of Number of trials and average IEI
+trial_iei_lm = ols(
+    ('t_value ~ '
+     'C(cnr, Simple) + '
+     'C(avnr, Simple) + '
+     'C(estimation_method, Simple) + '
+     'C(iti_mean, Treatment(reference=2)) * '
+     'C(n_trials, Treatment(reference=15))'), data=df_null_pwr).fit()
+trial_iei_lm.summary()
+
+# filled out the table by adding together coefficients
+# should I increase my IEI or number of trials?
+# |    | 2    | 4     | 6      | 8      |
+# |----|------|-------|--------|--------|
+# | 15 | 6.54 | 30.4  | 68.63  | 79.91  |
+# | 30 | 4.75 | 39.27 | 84.32  | 93.65  |
+# | 45 | 3.31 | 49.23 | 89.95  | 115.99 |
+# | 60 | 2.65 | 59.8  | 100.25 | 108.34 |
+# increase the IEI to 6 seconds number of trials to 30 for local optimum
+# IEI to 8 seconds and number of trials to 45 for global optimum
+
 
 ################################
 # Look at large difference (0.3)
