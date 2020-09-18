@@ -13,10 +13,10 @@ class BrainiakBaseInterface(LibraryBaseInterface):
 
 class SimulateDataInputSpec(BaseInterfaceInputSpec):
     iteration = traits.Int(desc='marking each iteration of the simulation')
-    noise_dict = traits.Dict()
-    brain_dimensions = traits.Array(shape=(3,))
-    events_files = traits.List(trait=traits.File())
-    correlation_targets = traits.Float()
+    noise_dict = traits.Dict(desc="dictionary used in fmrisim")
+    brain_dimensions = traits.Array(shape=(3,), desc="three dimensional shape of the brain")
+    events_files = traits.List(trait=traits.File(), desc="potential events files to choose from")
+    correlation_targets = traits.Float(desc="the Pearson's correlation between voxels")
     snr_measure = traits.Str(
         desc='choose how to calculate snr: '
              'SFNR, CNR_Amp/Noise-SD, CNR_Amp2/Noise-Var_dB, '
@@ -25,8 +25,8 @@ class SimulateDataInputSpec(BaseInterfaceInputSpec):
     signal_magnitude = traits.List()
     total_duration = traits.Int(desc="length of bold run in seconds")
     tr_duration = traits.Float(desc="length of TR in seconds")
-    iti_mean = traits.Float()
-    n_trials = traits.Int()
+    iti_mean = traits.Float(desc="mean inter-trial-interval")
+    n_trials = traits.Int(desc="number of trials per trial type")
     correction = traits.Bool(desc="use the 'real data' method to detect cnr")
     trial_standard_deviation = traits.Float(desc="Standard Deviation of Trial Betas")
     noise_method = traits.Enum('real', 'simple', default='real', usedefault='true')

@@ -15,24 +15,29 @@ class CreateDesignInputSpec(BaseInterfaceInputSpec):
     tr_duration = traits.Float(desc="length of TR in seconds")
     trials = traits.Int(desc="number of trials per trial type")
     trial_types = traits.Int(desc="number of trial types")
-    iti_min = traits.Float()
-    iti_mean = traits.Float()
-    iti_max = traits.Float()
+    iti_min = traits.Float(desc="minimum inter-trial-interval")
+    iti_mean = traits.Float(desc="mean inter-trial-interval")
+    iti_max = traits.Float(desc="maximum inter-trial-interval")
     iti_model = traits.Str(desc='choices: “fixed”,”uniform”,”exponential”')
-    stim_duration = traits.Float()
-    contrasts = traits.Either(traits.List(), traits.Array())
-    design_resolution = traits.Float()
-    rho = traits.Float()
-    optimize_weights = traits.List(trait=traits.Float())
+    stim_duration = traits.Float(desc="duration of the stimulus")
+    contrasts = traits.Either(traits.List(), traits.Array(),
+                              desc="contrasts between trial types")
+    design_resolution = traits.Float(desc="second resolution of the design matrix")
+    rho = traits.Float(desc="autocorrelation of the data")
+    optimize_weights = traits.List(trait=traits.Float(), minlen=4, maxlen=4,
+                                   desc=("Weights given to each of the efficiency metrics "
+                                         "in this order: Estimation, Detection, "
+                                         "Frequencies, Confounders"))
 #    precomputed_events_files = traits.Either(traits.List(trait=traits.File()), None)
 
 
 class CreateDesignOutputSpec(TraitedSpec):
-    events_files = traits.List(trait=traits.File())
-    total_duration = traits.Int()
-    stim_duration = traits.Float()
-    n_trials = traits.Int()
-    iti_mean = traits.Float()
+    events_files = traits.List(trait=traits.File(),
+                               desc="files with columns 'trial_type', 'onset', and 'duration'")
+    total_duration = traits.Int(desc="largest duration of all designs (in seconds)")
+    stim_duration = traits.Float(desc="stimulus duration (in seconds)")
+    n_trials = traits.Int(desc="number of trials per trial type")
+    iti_mean = traits.Float(desc="mean inter-trial-interval")
 
 
 class CreateDesign(NeuroDesignBaseInterface, SimpleInterface):
@@ -100,6 +105,7 @@ class CreateDesign(NeuroDesignBaseInterface, SimpleInterface):
 
             events_file_list.append(events_file)
 
+            # find the max duration of all generated designs
             if design.experiment.duration > duration:
                 duration = design.experiment.duration
 
@@ -120,20 +126,17 @@ class CreateDesign(NeuroDesignBaseInterface, SimpleInterface):
 
 
 class ReadDesignInputSpec(BaseInterfaceInputSpec):
-    events_file = traits.File()
-    bold_file = traits.Either(None, traits.File())
-    tr = traits.Float()
-    nvols = traits.Either(None, traits.Int())
+    events_file = traits.File(desc="file with columns 'trial_type', 'onset', and 'duration'")
+    bold_file = traits.Either(None, traits.File(),
+                              desc="either None or file pointing to a nifti image")
+    tr = traits.Float(desc="repetition time of the scan")
+    nvols = traits.Either(None, traits.Int(), desc="number of volumes included in the run")
 
 
-class ReadDesignOutputSpec(TraitedSpec):
-    events_files = traits.List(trait=traits.File())
-    total_duration = traits.Int()
-    stim_duration = traits.Float()
-    n_trials = traits.Int()
-    iti_mean = traits.Float()
-    tr = traits.Float()
-    bold_file = traits.Either(None, traits.File())
+class ReadDesignOutputSpec(CreateDesignOutputSpec):
+    tr = traits.Float(desc="repetition time of the scan")
+    bold_file = traits.Either(None, traits.File(),
+                              desc="either None or file pointing to a nifti image")
 
 
 class ReadDesign(SimpleInterface):

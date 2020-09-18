@@ -5,6 +5,7 @@ from nipype.interfaces.base import (
 
 import re
 
+# output from NiBetaSeries
 BETA_FILENAME = re.compile(
     '.*desc-(?P<trial_type>[A-Za-z0-9]+)_betaseries.nii.gz')
 
