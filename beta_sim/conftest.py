@@ -438,15 +438,13 @@ def events_file(base_path, tr, tp):
     task_onsets[0::10] = 1
     # add fries at every 10 time points starting at 3
     task_onsets[3::10] = 1
-    # add milkshakes at every 10 time points starting at 6
-    task_onsets[6::10] = 1
     # create event tsv
     num_trials = np.where(task_onsets == 1)[0].shape[0]
     onsets = np.multiply(np.where(task_onsets == 1), tr).reshape(num_trials)
     durations = [1] * num_trials
-    num_conds = 3
+    num_conds = 2
     trial_types = \
-        ['waffle', 'fry', 'milkshake'] * \
+        ['waffle', 'fry'] * \
         int((num_trials / num_conds))
     events_df = pd.DataFrame.from_dict({'onset': onsets,
                                         'duration': durations,
