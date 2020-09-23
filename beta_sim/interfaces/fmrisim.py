@@ -16,13 +16,13 @@ class SimulateDataInputSpec(BaseInterfaceInputSpec):
     noise_dict = traits.Dict(desc="dictionary used in fmrisim")
     brain_dimensions = traits.Array(shape=(3,), desc="three dimensional shape of the brain")
     events_files = traits.List(trait=traits.File(), desc="potential events files to choose from")
-    correlation_targets = traits.Float(desc="the Pearson's correlation between voxels")
+    correlation_targets = traits.List(desc="the Pearson's correlation between voxels")
     snr_measure = traits.Str(
         desc='choose how to calculate snr: '
              'SFNR, CNR_Amp/Noise-SD, CNR_Amp2/Noise-Var_dB, '
              'CNR_Signal-SD/Noise-SD, CNR_Signal-Var/Noise-Var_dB '
              'PSC')
-    signal_magnitude = traits.List()
+    signal_magnitude = traits.List(desc="ratio of signal to noise")
     total_duration = traits.Int(desc="length of bold run in seconds")
     tr_duration = traits.Float(desc="length of TR in seconds")
     iti_mean = traits.Float(desc="mean inter-trial-interval")
@@ -39,7 +39,7 @@ class SimulateDataOutputSpec(TraitedSpec):
     events_file = File(exists=True)
     iti_mean = traits.Float()
     n_trials = traits.Int()
-    correlation_targets = traits.Float()
+    correlation_targets = traits.Dict()
     trial_standard_deviation = traits.Float()
     trial_noise_ratio = traits.Dict()
     noise_correlation = traits.Float()
@@ -197,40 +197,46 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
         return runtime
 
 
-def _gen_beta_weights(events, target_corr, brain_dimensions, trial_std):
+def _gen_beta_weights(events, variance_difference, trial_std):
+    """Generate the beta weights for simulations
+
+    Parameters
+    ----------
+    events : pandas.DataFrame
+        Table containing trial types, onsets, and durations.
+    variance_difference : float
+        Percent variance difference between trial types.
+    trial_std : float
+        Standard deviation of the betas for a trial type
+
+    Returns
+    -------
+    beta_dict : dict
+        Trial type dictionary with trial types as keys
+        and their betas as values.
+    """
+
     import numpy as np
     from scipy.optimize import minimize
     import time
 
     trial_types_uniq = events['trial_type'].unique()
-    trial_types_num = trial_types_uniq.shape[0]
-    n_voxels = np.prod(brain_dimensions)
-    cov_mat = np.full((n_voxels, n_voxels), float(trial_std ** 2))
-    # fill lower off diagnal with correlation target
-    cov_mat[np.tril_indices(n_voxels, k=-1)] = target_corr * (trial_std ** 2)
-    # fill upper off diagonal with correlation target
-    cov_mat[np.triu_indices(n_voxels, k=1)] = target_corr * (trial_std ** 2)
-    cov_mats = {tt: cov_mat for tt in trial_types_uniq}
+    if trial_types_uniq.shape[0] != 2:
+        raise NotImplementedError("more than two trial types currently not supported")
+    n_voxels = 2
+    target_corr = variance_difference ** 0.5
+    trial_variance = float(trial_std ** 2)
 
-    if trial_types_num != len(cov_mats.values()):
-        raise ValueError("must be the same number of correlation matrices "
-                         "as the number of trial types")
-
-    if set(trial_types_uniq) != set(cov_mats.keys()):
-        raise ValueError("correlation matrix trial types do not "
-                         "match the event trial types")
-
-    # make sure there are the same number of trials for each
-    # trial_type
-    # counts = events.groupby('trial_type')['trial_type'].count()
-    # trial_num = counts[0]
-    # if np.all(counts != trial_num):
-    #    raise ValueError("there must be the same number of events "
-    #                     "per trial_type")
-
-    n_voxels = np.prod(brain_dimensions)
     beta_dict = {}
-    for trial_type, cov_mat in cov_mats.items():
+    cov_mat = np.full((n_voxels, n_voxels), trial_variance)
+    for trial_type in trial_types_uniq:
+        if beta_dict:
+            cov_mat[np.tril_indices(n_voxels, k=-1)] = target_corr * trial_variance
+            cov_mat[np.triu_indices(n_voxels, k=1)] = target_corr * trial_variance
+        else:
+            cov_mat[np.tril_indices(n_voxels, k=-1)] = 0
+            cov_mat[np.triu_indices(n_voxels, k=1)] = 0
+
         trial_bool = events['trial_type'] == trial_type
         trial_num = trial_bool.sum()
         # continue while loop while the target correlations
@@ -275,22 +281,10 @@ def _gen_beta_weights(events, target_corr, brain_dimensions, trial_std):
             c_wrong = c_tol < corr_error
             end = time.time() - start
 
-            # check if the correlations are close enough
-            # idxs = np.tril_indices_from(corr, k=-1)
-            # uniq_corr = corr[idxs]
-            # gnd_corr = cov_matrix[idxs]
-            # c_diff = np.abs(gnd_corr - uniq_corr)
-            # c_wrong = np.any(c_diff > corr_tol)
-
-            # check if the means are close enough
-            # uniq_means = sim_betas.mean(axis=0)
-            # m_diff = np.abs(gnd_means - uniq_means)
-            # m_wrong = np.any(m_diff > mean_tol)
-
         if end > overtime:
             raise RuntimeError("Could not make a correlation at the specific parameter")
-        mean_fix = 1 - sim_betas.mean(axis=0)
         # ensure each beta series has average of 1.
+        mean_fix = 1 - sim_betas.mean(axis=0)
         sim_betas_fixed = sim_betas + mean_fix
         beta_dict[trial_type] = sim_betas_fixed
 
