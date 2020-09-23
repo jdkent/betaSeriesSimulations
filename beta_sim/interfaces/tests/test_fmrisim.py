@@ -1,10 +1,15 @@
+import os
+
+import numpy as np
+import pandas as pd
+import pytest
+
+from ..fmrisim import ContrastNoiseRatio, SimulateData, _gen_beta_weights
 
 
 def test_SimulateData(events_file, noise_dict, tr, tp,
                       snr_measure, signal_magnitude,
                       brain_dimensions, correlation_targets):
-    from ..fmrisim import SimulateData
-
     sim_data = SimulateData(
         noise_dict=noise_dict,
         brain_dimensions=brain_dimensions,
@@ -26,8 +31,6 @@ def test_SimulateData(events_file, noise_dict, tr, tp,
 
 
 def test_ContrastNoiseRatio(example_data_dir, activation_mask):
-    from ..fmrisim import ContrastNoiseRatio
-    import os
 
     events_file = os.path.join(
         example_data_dir,
@@ -67,3 +70,25 @@ def test_ContrastNoiseRatio(example_data_dir, activation_mask):
         tr=tr)
 
     assert calc_cnr.run()
+
+
+@pytest.mark.parametrize(
+    "variance_difference",
+    [0.01, 0.05, 0.1],
+)
+@pytest.mark.parametrize(
+    "trial_std",
+    [0.5, 1, 2],
+)
+def test_gen_beta_weights(events_file, variance_difference, trial_std):
+    events = pd.read_csv(events_file, sep='\t')
+
+    beta_dict = _gen_beta_weights(
+        events, variance_difference, trial_std)
+
+    waffle_corr = np.corrcoef(beta_dict['waffle'].T)[0, 1]
+    fry_corr = np.corrcoef(beta_dict['fry'].T)[0, 1]
+
+    result_variance_difference = (waffle_corr - fry_corr) ** 2
+
+    assert np.isclose(result_variance_difference, variance_difference, atol=0.01)
