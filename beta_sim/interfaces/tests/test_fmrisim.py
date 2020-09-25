@@ -30,48 +30,6 @@ def test_SimulateData(events_file, noise_dict, tr, tp,
     assert sim_data.run()
 
 
-def test_ContrastNoiseRatio(example_data_dir, activation_mask):
-
-    events_file = os.path.join(
-        example_data_dir,
-        "ds000164",
-        "sub-001",
-        "func",
-        "sub-001_task-stroop_events.tsv")
-
-    bold_file = os.path.join(
-        example_data_dir,
-        "ds000164",
-        "derivatives",
-        "fmriprep",
-        "sub-001",
-        "func",
-        "sub-001_task-stroop_space-MNI152NLin2009cAsym_desc-preproc_bold.nii.gz")
-
-    confounds_file = os.path.join(
-        example_data_dir,
-        "ds000164",
-        "derivatives",
-        "fmriprep",
-        "sub-001",
-        "func",
-        "sub-001_task-stroop_desc-confounds_regressors.tsv",
-    )
-
-    tr = 2
-
-    calc_cnr = ContrastNoiseRatio(
-        events_files=[events_file],
-        bold_file=bold_file,
-        confounds_file=confounds_file,
-        selected_confounds=["CSF", "WhiteMatter"],
-        method="Welvaert",
-        activation_mask=activation_mask,
-        tr=tr)
-
-    assert calc_cnr.run()
-
-
 @pytest.mark.parametrize(
     "variance_difference",
     [0.01, 0.05, 0.1],
