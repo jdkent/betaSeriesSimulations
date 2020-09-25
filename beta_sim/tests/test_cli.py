@@ -1,7 +1,11 @@
-from ..cli import process_config
+from ..cli import load_config
 
 
-def test_process_config(config_file_events):
-    config_dict = process_config(config_file_events)
+def test_load_config(config_file_events):
+    config_dict = load_config(config_file_events)
 
-    assert config_dict.get('events_file', None)
+    assert config_dict.get('event_files', None)
+
+
+def test_validate_config():
+    pass
