@@ -1,6 +1,7 @@
 # This file demonstrates a workflow-generating function,
 # a particular convention for generating
 # nipype workflows. Others are possible.
+import numpy as np
 from nipype.pipeline import engine as pe
 from nipype.interfaces import utility as niu
 from .interfaces.create_design import CreateDesign, ReadDesign
@@ -11,7 +12,6 @@ from nibetaseries.interfaces.nistats import LSABetaSeries, LSSBetaSeries
 
 # replace all inputs with config_json
 def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
-    n_simulations = int(n_simulations // len(config['trial_types']))
     wf = pe.Workflow(name=name)
     input_node = pe.Node(
         niu.IdentityInterface(['out_dir', 'fname']), name='input_node')
@@ -28,7 +28,7 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
     create_design = pe.Node(
         CreateDesign(tr_duration=config['tr_duration'],
                      trial_types=len(config.get('trial_types', None)),
-                     contrasts=config.get('contrasts', []),
+                     contrasts=_make_contrasts(len(config['trial_types'])),
                      n_event_files=config.get("n_event_files", None),
                      optimize_weights=optimize_weights),
         iterables=[
@@ -208,3 +208,7 @@ def _make_metadata_dict(tr_duration):
     bold_metadata = {"RepetitionTime": tr_duration}
 
     return bold_metadata
+
+
+def _make_contrasts(n_trial_types):
+    return np.eye(n_trial_types)
