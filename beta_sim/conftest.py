@@ -1,6 +1,7 @@
 from os.path import join, dirname, abspath
 import json
 
+import nibabel as nib
 import numpy as np
 import pandas as pd
 import pytest
@@ -17,71 +18,50 @@ def activation_mask():
 
 
 @pytest.fixture(scope='session')
-def lss_beta_series(base_path,
-                    correlation_targets,
-                    brain_dimensions):
-    import nibabel as nib
-    import numpy as np
+def beta_series(base_path):
+
+    correlation_targets = {
+        "waffle": np.array([[1, 0.2], [0.2, 1]]),
+        "fry": np.array([[1, 0.4], [0.4, 1]]),
+        "milkshake": np.array([[1, 0.6], [0.6, 1]]),
+    }
+
+    brain_dimensions = np.array([1, 1, 2])
+
     trial_num = 20
     n_voxels = np.prod(brain_dimensions)
     brain_data_size = np.append(brain_dimensions, trial_num)
-    sim_lss = np.ones(brain_data_size)
+    sim_fmri = np.ones(brain_data_size)
     gnd_means = np.ones(n_voxels)
-    lss_betas = np.random.multivariate_normal(
+    betas = np.random.multivariate_normal(
         gnd_means,
         np.array(correlation_targets["waffle"]),
         size=(trial_num),
         tol=0.00005
     )
 
-    sim_lss[0, 0, :, :] = lss_betas.T
+    sim_fmri[0, 0, :, :] = betas.T
 
-    lss_img = nib.Nifti2Image(sim_lss, np.eye(4))
+    beta_img = nib.Nifti2Image(sim_fmri, np.eye(4))
 
-    lss_file = base_path / 'desc-waffle_betaseries.nii.gz'
+    beta_file = base_path / 'desc-waffle_betaseries.nii.gz'
 
-    lss_img.to_filename(str(lss_file))
+    beta_img.to_filename(str(beta_file))
 
-    return lss_file
-
-
-@pytest.fixture(scope='session')
-def lsa_beta_series(base_path,
-                    correlation_targets,
-                    brain_dimensions):
-    import nibabel as nib
-    import numpy as np
-    trial_num = 20
-    n_voxels = np.prod(brain_dimensions)
-    brain_data_size = np.append(brain_dimensions, trial_num)
-    sim_lsa = np.ones(brain_data_size)
-    gnd_means = np.ones(n_voxels)
-    lsa_betas = np.random.multivariate_normal(
-        gnd_means,
-        np.array(correlation_targets["waffle"]),
-        size=(trial_num),
-        tol=0.00005
-    )
-
-    sim_lsa[0, 0, :, :] = lsa_betas.T
-
-    lsa_img = nib.Nifti2Image(sim_lsa, np.eye(4))
-
-    lsa_file = base_path / 'desc-waffle_betaseries.nii.gz'
-
-    lsa_img.to_filename(str(lsa_file))
-
-    return lsa_file
+    return beta_file
 
 
 @pytest.fixture(scope='session')
 def config_file(base_path):
-    import json
-
     config_file = base_path / "config.json"
     config_dict = {
-        "correlation_targets": [0.2, 0.6],
+        "variance_differences": [0.01, 0.05],
         "trial_types": ["c1", "c2"],
+        "contrast": "c1 - c2",
+        "sim_estimation": 0.25,
+        "sim_detection": 0.25,
+        "sim_freq": 0.25,
+        "sim_confound": 0.25,
         "n_event_files": 20,
         "tr_duration": 2,
         "noise_dict":
@@ -101,16 +81,8 @@ def config_file(base_path):
                 "ignore_spatial": True,
             },
         "snr_measure": "CNR_Amp/Noise-SD",
-        "signal_magnitude": [[8.17], [37.06], [95.73]],
+        "signal_magnitude": [[0.1], [1.0], [10.0]],
         "trials": [15, 30, 45],
-        "iti_min": [1],
-        "iti_mean": [2, 4, 6, 8],
-        "iti_max": [16],
-        "iti_model": ["exponential"],
-        "stim_duration": [0.2],
-        "design_resolution": [0.1],
-        "rho": [0.5],
-        "brain_dimensions": [1, 1, 2],
         "trial_standard_deviation": [0.5, 4.0],
     }
 
@@ -150,7 +122,7 @@ def config_file_real(base_path, example_data_dir):
         "sim_detection": 0.5,
         "sim_freq": 0.25,
         "sim_confound": 0.25,
-        "tr_duration": 2,
+        "tr_duration": 2.0,
         "noise_dict":
             {
                 "auto_reg_rho": [0.5],
@@ -212,16 +184,12 @@ def config_file_events(base_path, example_data_dir):
     nvols = nib.load(bold_file).shape[-1]
 
     config_dict = {
-        "correlation_targets": [0.2, 0.6],
-        "events_file": [events_file],
+        "variance_differences": [0.2, 0.6],
+        "event_files": [events_file],
         "trial_types": ["congruent", "incongruent", "neutral"],
-        "nvols": nvols,
-        "n_event_files": 20,
-        "sim_estimation": 0.0,
-        "sim_detection": 0.5,
-        "sim_freq": 0.25,
-        "sim_confound": 0.25,
-        "tr_duration": 2,
+        "contrast": "incongruent - congruent",
+        "n_vols": nvols,
+        "tr_duration": 2.0,
         "noise_dict":
             {
                 "auto_reg_rho": [0.5],
@@ -239,16 +207,7 @@ def config_file_events(base_path, example_data_dir):
                 "ignore_spatial": True,
             },
         "snr_measure": "CNR_Amp/Noise-SD",
-        "signal_magnitude": [[.001], [1000]],
-        "trials": [15, 30],
-        "iti_min": [1],
-        "iti_mean": [8, 20],
-        "iti_max": [42],
-        "iti_model": ["exponential"],
-        "stim_duration": [0.2],
-        "design_resolution": [0.1],
-        "rho": [0.5],
-        "brain_dimensions": [1, 1, 2],
+        "snr": [[.001], [1000]],
         "trial_standard_deviation": [1, 10],
     }
 
@@ -260,7 +219,6 @@ def config_file_events(base_path, example_data_dir):
 
 @pytest.fixture(scope='session')
 def config_file_simple(base_path):
-    import json
 
     config_file_s = base_path / "config_simple.json"
     config_dict = {
@@ -393,15 +351,6 @@ def voxel_size():
 @pytest.fixture(scope='session')
 def brain_dimensions():
     return np.array([1, 1, 2])
-
-
-@pytest.fixture(scope='session')
-def correlation_targets():
-    return {
-        "waffle": np.array([[1, 0.2], [0.2, 1]]),
-        "fry": np.array([[1, 0.4], [0.4, 1]]),
-        "milkshake": np.array([[1, 0.6], [0.6, 1]]),
-    }
 
 
 @pytest.fixture(scope='session')
