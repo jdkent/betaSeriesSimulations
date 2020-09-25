@@ -4,7 +4,7 @@
 from nipype.pipeline import engine as pe
 from nipype.interfaces import utility as niu
 from .interfaces.create_design import CreateDesign, ReadDesign
-from .interfaces.fmrisim import SimulateData, ContrastNoiseRatio
+from .interfaces.fmrisim import SimulateData
 from .interfaces.collect_results import ResultsEntry, CombineEntries
 from nibetaseries.interfaces.nistats import LSABetaSeries, LSSBetaSeries
 
@@ -55,26 +55,20 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
     elif config.get('nvols', None):
         read_design.iterables.append(('nvols', config['nvols']))
 
-    est_cnr = pe.Node(
-        ContrastNoiseRatio(
-            tr=config['tr_duration'],
-            method="Welvaert",
-            activation_mask=config.get("activation_mask", None)),
-        name="est_cnr",
-    )
-
     result_entry = pe.Node(
         ResultsEntry(snr_measure=config['snr_measure']),
         name="results_entry")
 
     lss = pe.Node(LSSBetaSeries(high_pass=0.0078125,
                                 hrf_model='glover',
-                                smoothing_kernel=None),
+                                smoothing_kernel=None,
+                                signal_scaling=False),
                   name="lss")
 
     lsa = pe.Node(LSABetaSeries(high_pass=0.0078125,
                                 hrf_model='glover',
-                                smoothing_kernel=None),
+                                smoothing_kernel=None,
+                                signal_scaling=False),
                   name="lsa")
 
     # you passed in your own events file
@@ -105,17 +99,6 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
         name="simulate_data",
     )
 
-    if config.get('bold_file', None):
-        simulate_data.iterables.remove(('signal_magnitude', config['signal_magnitude']))
-        wf.connect([
-            (read_design, est_cnr,
-                [('events_files', 'events_files'),
-                 ('bold_file', 'bold_file')]),
-            (est_cnr, simulate_data,
-                [(('cnr', _listify), 'signal_magnitude'),
-                 ('noise_dict', 'noise_dict')]),
-        ])
-
     wf.connect([
         (design_node, simulate_data,
             [('events_files', 'events_files'),
@@ -131,10 +114,12 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
              ('n_trials', 'n_trials')]),
     ])
 
-    make_mask_file = pe.Node(
-        niu.Function(function=_make_mask_file,
-                     output_names=["outpath"]),
-        name='make_mask')
+    make_mask_img = pe.Node(
+        niu.Function(function=_make_nifti_img,
+                     output_names=['img']),
+        name='make_mask_img',
+        )
+    make_mask_img.inputs.mask = True
 
     make_metadata_dict = pe.Node(
         niu.Function(function=_make_metadata_dict,
@@ -143,10 +128,11 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
 
     make_metadata_dict.inputs.tr_duration = config['tr_duration']
 
-    make_bold_file = pe.Node(
-        niu.Function(function=_make_bold_file,
-                     output_names=["outpath"]),
-        name='make_bold_file')
+    make_bold_img = pe.Node(
+        niu.Function(function=_make_nifti_img,
+                     output_names=['img']),
+        name='make_bold_img',
+    )
 
     gather_sim_node = pe.JoinNode(
         niu.IdentityInterface(['sim_outputs']),
@@ -161,22 +147,22 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
         name="combine_entries")
 
     wf.connect([
-        (simulate_data, make_mask_file,
+        (simulate_data, make_mask_img,
             [('simulated_data', 'data')]),
-        (simulate_data, make_bold_file,
+        (simulate_data, make_bold_img,
             [('simulated_data', 'data')]),
         (make_metadata_dict, lss,
             [('bold_metadata', 'bold_metadata')]),
-        (make_mask_file, lss,
-            [('outpath', 'mask_file')]),
-        (make_bold_file, lss,
-            [('outpath', 'bold_file')]),
+        (make_mask_img, lss,
+            [('img', 'mask_file')]),
+        (make_bold_img, lss,
+            [('img', 'bold_file')]),
         (make_metadata_dict, lsa,
             [('bold_metadata', 'bold_metadata')]),
-        (make_mask_file, lsa,
-            [('outpath', 'mask_file')]),
-        (make_bold_file, lsa,
-            [('outpath', 'bold_file')]),
+        (make_mask_img, lsa,
+            [('img', 'mask_file')]),
+        (make_bold_img, lsa,
+            [('img', 'bold_file')]),
         (lss, result_entry,
             [('beta_maps', 'lss_beta_series_imgs')]),
         (lsa, result_entry,
@@ -202,24 +188,16 @@ def init_beta_sim_wf(n_simulations, config, name='beta_sim_wf'):
     return wf
 
 
-def _make_mask_file(data):
-    import nibabel as nib
+def _make_nifti_img(data, mask=False):
     import numpy as np
-    import os
+    import nibabel as nib
 
-    dims = data.shape[0:3]
-
-    mask_data = np.ones(dims)
-
-    mask_img = nib.Nifti2Image(mask_data, np.eye(4))
-
-    fname = 'mask.nii.gz'
-    outdir = os.getcwd()
-    outpath = os.path.join(outdir, fname)
-
-    mask_img.to_filename(outpath)
-
-    return outpath
+    if not mask:
+        out_data = data
+    else:
+        dims = data.shape[0:3]
+        out_data = np.ones(dims)
+    return nib.Nifti2Image(out_data, np.eye(4))
 
 
 def _listify(x):
@@ -230,19 +208,3 @@ def _make_metadata_dict(tr_duration):
     bold_metadata = {"RepetitionTime": tr_duration}
 
     return bold_metadata
-
-
-def _make_bold_file(data):
-    import nibabel as nib
-    import numpy as np
-    import os
-
-    outdir = os.getcwd()
-    fname = 'bold.nii.gz'
-    outpath = os.path.join(outdir, fname)
-
-    bold_img = nib.Nifti2Image(data, np.eye(4))
-
-    bold_img.to_filename(outpath)
-
-    return outpath
