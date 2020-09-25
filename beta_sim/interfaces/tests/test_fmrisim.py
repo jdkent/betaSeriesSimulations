@@ -1,10 +1,8 @@
-import os
-
 import numpy as np
 import pandas as pd
 import pytest
 
-from ..fmrisim import ContrastNoiseRatio, SimulateData, _gen_beta_weights
+from ..fmrisim import SimulateData, _gen_beta_weights
 
 
 def test_SimulateData(events_file, noise_dict, tr, tp,
