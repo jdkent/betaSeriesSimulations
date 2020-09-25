@@ -4,6 +4,8 @@ from nipype.interfaces.base import (
     SimpleInterface, traits
     )
 
+from scipy.optimize import minimize
+import time
 import numpy as np
 
 
@@ -197,7 +199,7 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
         return runtime
 
 
-def _gen_beta_weights(events, variance_difference, trial_std):
+def _gen_beta_weights(events, variance_difference, trial_std, contrast):
     """Generate the beta weights for simulations
 
     Parameters
@@ -207,7 +209,10 @@ def _gen_beta_weights(events, variance_difference, trial_std):
     variance_difference : float
         Percent variance difference between trial types.
     trial_std : float
-        Standard deviation of the betas for a trial type
+        Standard deviation of the betas for a trial type.
+    contrast : str
+        Representation of the desired contrast to compare conditions.
+        (e.g., "condition1 - condition2")
 
     Returns
     -------
@@ -215,14 +220,13 @@ def _gen_beta_weights(events, variance_difference, trial_std):
         Trial type dictionary with trial types as keys
         and their betas as values.
     """
-
-    import numpy as np
-    from scipy.optimize import minimize
-    import time
-
     trial_types_uniq = events['trial_type'].unique()
-    if trial_types_uniq.shape[0] != 2:
-        raise NotImplementedError("more than two trial types currently not supported")
+    trial_type_subtractor, trial_type_reference = contrast.split(' - ')
+
+    if trial_type_subtractor not in trial_types_uniq:
+        raise ValueError(f"{trial_type_subtractor} not in {trial_types_uniq}")
+    if trial_type_reference not in trial_types_uniq:
+        raise ValueError(f"{trial_type_reference} not in {trial_types_uniq}")
     n_voxels = 2
     target_corr = variance_difference ** 0.5
     trial_variance = float(trial_std ** 2)
@@ -230,9 +234,12 @@ def _gen_beta_weights(events, variance_difference, trial_std):
     beta_dict = {}
     cov_mat = np.full((n_voxels, n_voxels), trial_variance)
     for trial_type in trial_types_uniq:
-        if beta_dict:
+        if trial_type == trial_type_subtractor:
             cov_mat[np.tril_indices(n_voxels, k=-1)] = target_corr * trial_variance
             cov_mat[np.triu_indices(n_voxels, k=1)] = target_corr * trial_variance
+        elif trial_type == trial_type_reference:
+            cov_mat[np.tril_indices(n_voxels, k=-1)] = 0
+            cov_mat[np.triu_indices(n_voxels, k=1)] = 0
         else:
             cov_mat[np.tril_indices(n_voxels, k=-1)] = 0
             cov_mat[np.triu_indices(n_voxels, k=1)] = 0
