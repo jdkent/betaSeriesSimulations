@@ -110,20 +110,6 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
         mask = template = np.ones(self.inputs.brain_dimensions)
         # to downsample the stimfunction
         skip_idx = int(temp_res * self.inputs.tr_duration)
-        tmp_noise_dict = {
-            'auto_reg_rho': [0.5],
-            'auto_reg_sigma': 1,
-            'drift_sigma': 1,
-            'fwhm': 4,
-            'ma_rho': [0.0],
-            'matched': 0,
-            'max_activity': 1000,
-            'physiological_sigma': 1,
-            'sfnr': 60, 'snr': 40,
-            'task_sigma': 1,
-            'voxel_size': [3.0, 3.0, 3.0],
-            'ignore_spatial': True,
-        }
         if self.inputs.noise_method == "real":
             noise = sim.generate_noise(
                 dimensions=self.inputs.brain_dimensions,
@@ -131,7 +117,7 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
                 tr_duration=self.inputs.tr_duration,
                 template=template,
                 mask=mask,
-                noise_dict=tmp_noise_dict
+                noise_dict=self.inputs.noise_dict
             )
         elif self.inputs.noise_method == "simple":
             n_voxels = np.prod(self.inputs.brain_dimensions)
@@ -148,7 +134,7 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
         tmp_signal_scaled = sim.compute_signal_change(
             signal_function=sim_brain,
             noise_function=noise_standard,
-            noise_dict=tmp_noise_dict,
+            noise_dict=self.inputs.noise_dict,
             magnitude=list(self.inputs.signal_magnitude),
             method=self.inputs.snr_measure
         )
@@ -165,7 +151,7 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
             signal_scaled = sim.compute_signal_change(
                 signal_function=sim_brain,
                 noise_function=noise_standard,
-                noise_dict=tmp_noise_dict,
+                noise_dict=self.inputs.noise_dict,
                 magnitude=list(corrected_signal_mag),
                 method=self.inputs.snr_measure
             )
