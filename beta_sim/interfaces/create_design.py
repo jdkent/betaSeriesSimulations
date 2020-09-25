@@ -28,7 +28,6 @@ class CreateDesignInputSpec(BaseInterfaceInputSpec):
                                    desc=("Weights given to each of the efficiency metrics "
                                          "in this order: Estimation, Detection, "
                                          "Frequencies, Confounders"))
-#    precomputed_events_files = traits.Either(traits.List(trait=traits.File()), None)
 
 
 class CreateDesignOutputSpec(TraitedSpec):
@@ -45,6 +44,7 @@ class CreateDesign(NeuroDesignBaseInterface, SimpleInterface):
     output_spec = CreateDesignOutputSpec
 
     def _run_interface(self, runtime):
+        # required to install "apt install libgl1-mesa-glx"
         from neurodesign import optimisation, experiment
         import pandas as pd
         import os
@@ -87,7 +87,13 @@ class CreateDesign(NeuroDesignBaseInterface, SimpleInterface):
         duration = 0
 
         events_file_list = []
-        for idx, design in enumerate(designer.designs[:self.inputs.n_event_files]):
+        # order the designs from best to worst
+        designs_ordered = sorted(designer.designs, key=lambda x: 1 / x.F)
+        for idx, design in enumerate(designs_ordered[:self.inputs.n_event_files]):
+            # Fc: confounding efficiency
+            # Fd: detection power
+            # Fe: estimation efficiency
+            # Ff: efficiency of frequencies
             events_dict = {
                 "onset": design.onsets,
                 "duration": [self.inputs.stim_duration] *
@@ -127,36 +133,21 @@ class CreateDesign(NeuroDesignBaseInterface, SimpleInterface):
 
 class ReadDesignInputSpec(BaseInterfaceInputSpec):
     events_file = traits.File(desc="file with columns 'trial_type', 'onset', and 'duration'")
-    bold_file = traits.Either(None, traits.File(),
-                              desc="either None or file pointing to a nifti image")
     tr = traits.Float(desc="repetition time of the scan")
-    nvols = traits.Either(None, traits.Int(), desc="number of volumes included in the run")
-
-
-class ReadDesignOutputSpec(CreateDesignOutputSpec):
-    tr = traits.Float(desc="repetition time of the scan")
-    bold_file = traits.Either(None, traits.File(),
-                              desc="either None or file pointing to a nifti image")
+    nvols = traits.Either(traits.Int(), desc="number of volumes included in the run")
 
 
 class ReadDesign(SimpleInterface):
     input_spec = ReadDesignInputSpec
-    output_spec = ReadDesignOutputSpec
+    output_spec = CreateDesignOutputSpec
 
     def _run_interface(self, runtime):
         import pandas as pd
-        import nibabel as nib
 
         events_df = pd.read_csv(self.inputs.events_file, sep='\t')
-        if self.inputs.bold_file:
-            bold_img = nib.load(self.inputs.bold_file)
-            nvols = bold_img.get_shape()[-1]
-        elif self.inputs.nvols:
-            nvols = self.inputs.nvols
-        else:
-            raise ValueError("Either bold_image or nvols needs to be set")
 
-        # tr = bold_img.header.get_zooms()[-1]
+        nvols = self.inputs.nvols
+
         tr = self.inputs.tr
 
         total_duration = nvols * tr
@@ -176,10 +167,6 @@ class ReadDesign(SimpleInterface):
 
         self._results['iti_mean'] = iti_mean
 
-        self._results['tr'] = int(tr)
-
-        self._results['events_files'] = [self.inputs.events_file]
-
-        self._results['bold_file'] = self.inputs.bold_file
+        self._results['event_files'] = [self.inputs.event_file]
 
         return runtime
