@@ -1,7 +1,7 @@
 from ..collect_results import ResultsEntry, CombineEntries
 
 
-def test_ResultsEntry(lss_beta_series, lsa_beta_series, snr_measure,
+def test_ResultsEntry(beta_series, snr_measure,
                       signal_magnitude, correlation_targets):
     iteration = 1
     iti_mean = 4
@@ -10,8 +10,8 @@ def test_ResultsEntry(lss_beta_series, lsa_beta_series, snr_measure,
     res = ResultsEntry(
         correlation_targets=0.0,
         trial_standard_deviation=0.5,
-        lss_beta_series_imgs=[str(lss_beta_series)],
-        lsa_beta_series_imgs=[str(lsa_beta_series)],
+        lss_beta_series_imgs=[str(beta_series)],
+        lsa_beta_series_imgs=[str(beta_series)],
         snr_measure=str(snr_measure),
         signal_magnitude=signal_magnitude,
         iteration=iteration,
