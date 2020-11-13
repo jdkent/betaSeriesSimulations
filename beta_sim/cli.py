@@ -72,14 +72,12 @@ def validate_config(config_dict):
             "noise_dict": ("required", dict),
             "snr_measure": ("required", str),
             "snr": ("required", list),
+            "noise_method": ("required", str),
             "trial_standard_deviation": ("required", list),
-            "n_vols": ("optional:!n_event_files", int),
+            "n_vols": ("optional", list),
             "event_files": ("optional:!n_event_files", list),
             "n_event_files": ("optional:!event_files", int),
-            "sim_estimation": ("optional:!event_files", float),
-            "sim_detection": ("optional:!event_files", float),
-            "sim_freq": ("optional:!event_files", float),
-            "sim_confound": ("optional:!event_files", float),
+            "optimize_weights": ("optional:!event_files", dict),
             "trials": ("optional:!event_files", list),
             "iti_min":  ("optional:!event_files", list),
             "iti_mean":  ("optional:!event_files", list),
@@ -112,9 +110,10 @@ def validate_config(config_dict):
                 skip_keys.append(key)
             elif not dependency_value:
                 skip_keys.append(dependency)
-
         else:
-            if not config_value:
+            if not config_value and requirements[0] == "optional":
+                continue
+            elif not config_value:
                 raise ValueError(f"{key} is missing")
 
         if key in skip_keys:
