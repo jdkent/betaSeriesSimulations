@@ -77,7 +77,7 @@ def config_file_events(base_path, example_data_dir):
         "func",
         "sub-001_task-stroop_space-MNI152NLin2009cAsym_desc-preproc_bold.nii.gz")
 
-    n_vols = nib.load(bold_file).shape[-1]
+    n_vols = [nib.load(bold_file).shape[-1]]
 
     config_dict = {
         "variance_differences": [0.2, 0.6],

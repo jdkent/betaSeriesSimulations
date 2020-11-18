@@ -1,5 +1,7 @@
 import os
 
+from nipype.pipeline.engine.utils import load_resultfile, save_resultfile
+
 from ..workflow import init_beta_sim_wf
 
 
@@ -11,6 +13,15 @@ def test_simple_init_beta_sim_wf(base_path, tr, tp,
         "data",
         "create_design",
     )
+
+    # replace parent directory to where it should be
+    result = load_resultfile(os.path.join(design_cache, "result_create_design.pklz"))
+    result.outputs.event_files = [
+        ef.replace(ef[:ef.index("create_design")-1], os.path.dirname(os.path.dirname(ef)))
+        for ef in result.outputs.event_files
+    ]
+
+    save_resultfile(result, design_cache, "create_design")
 
     fname = 'test.tsv'
 

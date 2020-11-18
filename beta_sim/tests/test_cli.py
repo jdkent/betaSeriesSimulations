@@ -13,6 +13,7 @@ def test_validate_config_no_event_files_():
         "variance_differences": [0.01, 0.05],
         "trial_types": ["c1", "c2"],
         "contrast": "c1 - c2",
+        "noise_method": "real",
         "optimize_weights": {
             "sim_estimation": 0.25,
             "sim_detection": 0.25,
