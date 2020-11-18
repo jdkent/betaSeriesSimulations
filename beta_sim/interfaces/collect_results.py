@@ -11,7 +11,8 @@ BETA_FILENAME = re.compile(
 
 
 class ResultsEntryInputSpec(BaseInterfaceInputSpec):
-    correlation_targets = traits.Float()
+    variance_difference_ground_truth = traits.Float()
+    contrast = traits.Str()
     trial_standard_deviation = traits.Float()
     lss_beta_series_imgs = traits.List(traits=traits.File())
     lsa_beta_series_imgs = traits.List(traits=traits.File())
@@ -42,51 +43,71 @@ class ResultsEntry(SimpleInterface):
         }
 
         entry_collector = {
-            "correlation_target": [],
-            "correlation_observed": [],
-            "correlation_noise": [],
+            "contrast_variance_difference_observed": [],
+            "contrast_variance_difference_ground_truth": [],
+            "contrast": [],
+            "voxelwise_noise_correlation": [],
             "estimation_method": [],
             "signal_magnitude": [],
             "snr_method": [],
             "iteration": [],
             "iti_mean": [],
             "n_trials": [],
-            "trial_type": [],
-            "trial_noise_ratio": [],
             "trial_standard_deviation": [],
         }
-        signal_magnitude = self.inputs.signal_magnitude[0]
+        trial_type_subtractor, trial_type_reference = self.inputs.contrast.split(' - ')
         for method, nii_files in method_dict.items():
             for nii_file in nii_files:
                 # get the trial_type
                 match = BETA_FILENAME.match(nii_file)
                 trial_type = match.groupdict()['trial_type']
+                trial_type_corr_entry = '_'.join([trial_type, "correlation"])
+                if trial_type_corr_entry not in entry_collector:
+                    entry_collector[trial_type_corr_entry] = []
+
+                trial_noise_ratio = '_'.join([trial_type, "noise_ratio"])
+                if trial_noise_ratio not in entry_collector:
+                    entry_collector[trial_noise_ratio] = []
 
                 img = nib.load(nii_file)
                 data = img.get_data()
                 data = data.squeeze()
 
-                corr_obs = np.corrcoef(data)
-                corr_tgt = self.inputs.correlation_targets
-
-                idxs = np.tril_indices_from(corr_obs, k=-1)
+                corr_obs_matrix = np.corrcoef(data)
+                idxs = np.tril_indices_from(corr_obs_matrix, k=-1)
                 # hard code for one value
-                corr_obs_flat = corr_obs[idxs][0]
+                corr_obs = corr_obs_matrix[idxs][0]
+                if trial_type == trial_type_subtractor:
+                    subtractor_corr = corr_obs
+                elif trial_type == trial_type_reference:
+                    reference_corr = corr_obs
+                else:
+                    pass
 
-                trial_noise_ratio = self.inputs.trial_noise_ratio[trial_type]
-                entry_collector['trial_type'].append(trial_type)
-                entry_collector['trial_noise_ratio'].append(trial_noise_ratio)
-                entry_collector['correlation_target'].append(corr_tgt)
-                entry_collector['correlation_observed'].append(corr_obs_flat)
-                entry_collector['correlation_noise'].append(self.inputs.noise_correlation)
-                entry_collector['estimation_method'].append(method)
-                entry_collector['signal_magnitude'].append(signal_magnitude)
-                entry_collector['snr_method'].append(self.inputs.snr_measure)
-                entry_collector['iteration'].append(self.inputs.iteration)
-                entry_collector['iti_mean'].append(self.inputs.iti_mean)
-                entry_collector['n_trials'].append(self.inputs.n_trials)
-                entry_collector['trial_standard_deviation'].append(
-                    self.inputs.trial_standard_deviation)
+                entry_collector[trial_noise_ratio].append(
+                    self.inputs.trial_noise_ratio[trial_type]
+                )
+                entry_collector[trial_type_corr_entry].append(corr_obs)
+
+            # add the variance difference
+            variance_difference_observed = (subtractor_corr - reference_corr) ** 2
+            entry_collector['contrast_variance_difference_observed'].append(
+                variance_difference_observed
+            )
+            entry_collector['contrast_variance_difference_ground_truth'].append(
+                self.inputs.variance_difference_ground_truth
+            )
+            entry_collector["voxelwise_noise_correlation"].append(self.inputs.noise_correlation)
+            entry_collector['estimation_method'].append(method)
+            entry_collector['signal_magnitude'].append(self.inputs.signal_magnitude[0])
+            entry_collector['snr_method'].append(self.inputs.snr_measure)
+            entry_collector['iteration'].append(self.inputs.iteration)
+            entry_collector['iti_mean'].append(self.inputs.iti_mean)
+            entry_collector['n_trials'].append(self.inputs.n_trials)
+            entry_collector['contrast'].append(self.inputs.contrast)
+            entry_collector['trial_standard_deviation'].append(
+                self.inputs.trial_standard_deviation
+            )
 
         if self.inputs.iti_mean is None:
             entry_collector.pop('iti_mean')
