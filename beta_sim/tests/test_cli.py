@@ -13,10 +13,12 @@ def test_validate_config_no_event_files_():
         "variance_differences": [0.01, 0.05],
         "trial_types": ["c1", "c2"],
         "contrast": "c1 - c2",
-        "sim_estimation": 0.25,
-        "sim_detection": 0.25,
-        "sim_freq": 0.25,
-        "sim_confound": 0.25,
+        "optimize_weights": {
+            "sim_estimation": 0.25,
+            "sim_detection": 0.25,
+            "sim_freq": 0.25,
+            "sim_confound": 0.25,
+        },
         "n_event_files": 20,
         "tr_duration": 2.0,
         "noise_dict":

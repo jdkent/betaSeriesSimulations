@@ -15,7 +15,7 @@ def test_CreateDesign():
         design_resolution=0.1,
         n_event_files=2,
         rho=0.6,
-        optimize_weights=[0, 0.5, 0.25, 0.25]
+        optimize_weights={'estimation': 0, 'detection': 0.5, 'frequency': 0.25, 'confounds': 0.25}
     )
 
     my_design.run()
