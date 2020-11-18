@@ -6,7 +6,7 @@ from ..fmrisim import SimulateData, _gen_beta_weights
 
 
 def test_SimulateData(events_file, noise_dict, tr, tp,
-                      snr_measure, signal_magnitude,
+                      snr_measure, snr,
                       brain_dimensions):
     sim_data = SimulateData(
         noise_dict=noise_dict,
@@ -16,10 +16,10 @@ def test_SimulateData(events_file, noise_dict, tr, tp,
         iti_mean=5.0,
         n_trials=50,
         iteration=0,
-        variance_difference=0.0,
+        variance_difference_ground_truth=0.0,
         noise_method='real',
         snr_measure=snr_measure,
-        signal_magnitude=signal_magnitude,
+        signal_magnitude=snr,
         total_duration=tr * tp,
         tr_duration=tr,
         trial_standard_deviation=0.5,

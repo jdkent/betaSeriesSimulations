@@ -34,22 +34,25 @@ def beta_series(base_path):
     brain_data_size = np.append(brain_dimensions, trial_num)
     sim_fmri = np.ones(brain_data_size)
     gnd_means = np.ones(n_voxels)
-    betas = np.random.multivariate_normal(
-        gnd_means,
-        np.array(correlation_targets["waffle"]),
-        size=(trial_num),
-        tol=0.00005
-    )
+    beta_files = []
+    for trial_type in correlation_targets.keys():
+        betas = np.random.multivariate_normal(
+            gnd_means,
+            np.array(correlation_targets[trial_type]),
+            size=(trial_num),
+            tol=0.00005
+        )
 
-    sim_fmri[0, 0, :, :] = betas.T
+        sim_fmri[0, 0, :, :] = betas.T
 
-    beta_img = nib.Nifti2Image(sim_fmri, np.eye(4))
+        beta_img = nib.Nifti2Image(sim_fmri, np.eye(4))
 
-    beta_file = base_path / 'desc-waffle_betaseries.nii.gz'
+        beta_file = base_path / f'desc-{trial_type}_betaseries.nii.gz'
 
-    beta_img.to_filename(str(beta_file))
+        beta_img.to_filename(str(beta_file))
+        beta_files.append(beta_file)
 
-    return beta_file
+    return beta_files
 
 
 @pytest.fixture(scope='session')
@@ -172,7 +175,7 @@ def config_file_manual(base_path):
             "tests",
             "data",
             "create_design",
-            "*.tsv",
+            "*idx-01_events.tsv",
         )
     )
     config_file_man = base_path / "config_manual.json"
