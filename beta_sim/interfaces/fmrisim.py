@@ -17,8 +17,9 @@ class SimulateDataInputSpec(BaseInterfaceInputSpec):
     iteration = traits.Int(desc='marking each iteration of the simulation')
     noise_dict = traits.Dict(desc="dictionary used in fmrisim")
     brain_dimensions = traits.Array(shape=(3,), desc="three dimensional shape of the brain")
-    events_files = traits.List(trait=traits.File(), desc="potential events files to choose from")
-    correlation_targets = traits.List(desc="the Pearson's correlation between voxels")
+    event_files = traits.List(trait=traits.File(), desc="potential events files to choose from")
+    variance_difference_ground_truth = traits.Float(
+        desc="the Pearson's correlation between voxels")
     snr_measure = traits.Str(
         desc='choose how to calculate snr: '
              'SFNR, CNR_Amp/Noise-SD, CNR_Amp2/Noise-Var_dB, '
@@ -32,19 +33,27 @@ class SimulateDataInputSpec(BaseInterfaceInputSpec):
     correction = traits.Bool(desc="use the 'real data' method to detect cnr")
     trial_standard_deviation = traits.Float(desc="Standard Deviation of Trial Betas")
     noise_method = traits.Enum('real', 'simple', default='real', usedefault='true')
+    contrast = traits.String(
+        desc="contrast defining which conditions to compare (e.g., 'Waffle - Fry'"
+    )
 
 
 class SimulateDataOutputSpec(TraitedSpec):
     simulated_data = traits.Array()
-    iteration = traits.Int()
-    signal_magnitude = traits.List()
+    #    iteration = traits.Int()
+    #    signal_magnitude = traits.List()
     events_file = File(exists=True)
-    iti_mean = traits.Float()
-    n_trials = traits.Int()
-    correlation_targets = traits.Dict()
-    trial_standard_deviation = traits.Float()
+    #    iti_mean = traits.Float()
+    #    n_trials = traits.Int()
+    #    correlation_targets = traits.Dict()
+    #    trial_standard_deviation = traits.Float()
     trial_noise_ratio = traits.Dict()
     noise_correlation = traits.Float()
+    ground_truth_correlation_difference = traits.Float()
+    ground_truth_subtractor_correlation = traits.Float()
+    ground_truth_reference_correlation = traits.Float()
+    trial_type_subtractor = traits.Str()
+    trial_type_reference = traits.Str()
 
 
 class SimulateData(BrainiakBaseInterface, SimpleInterface):
@@ -60,17 +69,21 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
         temp_res = 100
 
         # determine which events file to use based on iteration.
-        events_idx = self.inputs.iteration % len(self.inputs.events_files)
-        events_file = self.inputs.events_files[events_idx]
+        events_idx = self.inputs.iteration % len(self.inputs.event_files)
+        events_file = self.inputs.event_files[events_idx]
         # assume events_file has onset, duration, and trial_type
         events = pd.read_csv(events_file, sep='\t')
 
         beta_weights_dict = _gen_beta_weights(
             events,
-            self.inputs.correlation_targets,
-            self.inputs.brain_dimensions,
+            self.inputs.variance_difference_ground_truth,
             trial_std=self.inputs.trial_standard_deviation,
+            contrast=self.inputs.contrast,
         )
+        trial_type_subtractor, trial_type_reference = self.inputs.contrast.split(' - ')
+        reference_corr = np.corrcoef(beta_weights_dict[trial_type_reference])[0, 1]
+        subtractor_corr = np.corrcoef(beta_weights_dict[trial_type_subtractor])[0, 1]
+        diff_corr = subtractor_corr - reference_corr
 
         trial_types_uniq = events['trial_type'].unique()
         tr_num = int(self.inputs.total_duration // self.inputs.tr_duration)
@@ -172,15 +185,20 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
         }
 
         self._results['trial_noise_ratio'] = trial_noise_ratio
-        self._results['trial_standard_deviation'] = self.inputs.trial_standard_deviation
-        self._results['correlation_targets'] = self.inputs.correlation_targets
+#        self._results['trial_standard_deviation'] = self.inputs.trial_standard_deviation
+#        self._results['correlation_targets'] = self.inputs.correlation_targets
         self._results['noise_correlation'] = noise_corr
         self._results['simulated_data'] = brain
-        self._results['iteration'] = self.inputs.iteration
-        self._results['signal_magnitude'] = signal_mag
+        self._results['ground_truth_correlation_difference'] = diff_corr
+        self._results['ground_truth_subtractor_correlation'] = subtractor_corr
+        self._results['ground_truth_reference_correlation'] = reference_corr
+        self._results['trial_type_subtractor'] = trial_type_subtractor
+        self._results['trial_type_reference'] = trial_type_reference
+#        self._results['iteration'] = self.inputs.iteration
+#        self._results['signal_magnitude'] = signal_mag
         self._results['events_file'] = events_file
-        self._results['iti_mean'] = self.inputs.iti_mean
-        self._results['n_trials'] = self.inputs.n_trials
+#        self._results['iti_mean'] = self.inputs.iti_mean
+#        self._results['n_trials'] = self.inputs.n_trials
 
         return runtime
 
