@@ -18,6 +18,6 @@ dependencies:
   - ptvsd
   - pip:
     - git+https://github.com/jdkent/neurodesign.git@2998954f3cf5354a6bd5f6f93380915f8f3ab693#egg=neurodesign
-    - git+https://github.com/jdkent/NiBetaSeries.git@no_signal_scaling#egg=nibetaseries
+    - nibetaseries==0.6.0
 #    - git+https://github.com/niflows/niflow-manager.git@8a223c248c925230f27385f0eb0e66275b422c46#egg=niflow-manager
 #    - --no-use-pep517 git+https://github.com/jdkent/brainiak.git@separate_temporal_spatial#egg=brainiak

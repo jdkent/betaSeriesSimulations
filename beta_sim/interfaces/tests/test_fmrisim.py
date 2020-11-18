@@ -1,69 +1,52 @@
+import numpy as np
+import pandas as pd
+import pytest
+
+from ..fmrisim import SimulateData, _gen_beta_weights
 
 
 def test_SimulateData(events_file, noise_dict, tr, tp,
-                      snr_measure, signal_magnitude,
-                      brain_dimensions, correlation_targets):
-    from ..fmrisim import SimulateData
-
+                      snr_measure, snr,
+                      brain_dimensions):
     sim_data = SimulateData(
         noise_dict=noise_dict,
         brain_dimensions=brain_dimensions,
-        events_files=[str(events_file)],
+        event_files=[str(events_file)],
         correction=False,
         iti_mean=5.0,
         n_trials=50,
         iteration=0,
-        correlation_targets=0.0,
+        variance_difference_ground_truth=0.0,
         noise_method='real',
         snr_measure=snr_measure,
-        signal_magnitude=signal_magnitude,
+        signal_magnitude=snr,
         total_duration=tr * tp,
         tr_duration=tr,
         trial_standard_deviation=0.5,
+        contrast='waffle - fry',
     )
 
     assert sim_data.run()
 
 
-def test_ContrastNoiseRatio(example_data_dir, activation_mask):
-    from ..fmrisim import ContrastNoiseRatio
-    import os
+@pytest.mark.parametrize(
+    "variance_difference",
+    [0.01, 0.05, 0.1],
+)
+@pytest.mark.parametrize(
+    "trial_std",
+    [0.5, 1, 2],
+)
+def test_gen_beta_weights(events_file, variance_difference, trial_std):
+    contrast = 'waffle - fry'
+    events = pd.read_csv(events_file, sep='\t')
 
-    events_file = os.path.join(
-        example_data_dir,
-        "ds000164",
-        "sub-001",
-        "func",
-        "sub-001_task-stroop_events.tsv")
+    beta_dict = _gen_beta_weights(
+        events, variance_difference, trial_std, contrast)
 
-    bold_file = os.path.join(
-        example_data_dir,
-        "ds000164",
-        "derivatives",
-        "fmriprep",
-        "sub-001",
-        "func",
-        "sub-001_task-stroop_space-MNI152NLin2009cAsym_desc-preproc_bold.nii.gz")
+    waffle_corr = np.corrcoef(beta_dict['waffle'].T)[0, 1]
+    fry_corr = np.corrcoef(beta_dict['fry'].T)[0, 1]
 
-    confounds_file = os.path.join(
-        example_data_dir,
-        "ds000164",
-        "derivatives",
-        "fmriprep",
-        "sub-001",
-        "func",
-        "sub-001_task-stroop_desc-confounds_regressors.tsv",
-    )
+    result_variance_difference = (waffle_corr - fry_corr) ** 2
 
-    tr = 2
-
-    calc_cnr = ContrastNoiseRatio(
-        events_files=[events_file],
-        bold_file=bold_file,
-        confounds_file=confounds_file,
-        selected_confounds=["CSF", "WhiteMatter"],
-        method="Welvaert",
-        activation_mask=activation_mask,
-        tr=tr)
-
-    assert calc_cnr.run()
+    assert np.isclose(result_variance_difference, variance_difference, atol=0.01)

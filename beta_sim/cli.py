@@ -12,7 +12,7 @@ def main():
 
     opts = get_parser().parse_args()
 
-    config = process_config(opts.config)
+    config = load_config(opts.config)
 
     out_dir = os.path.abspath(opts.out_dir)
     os.makedirs(out_dir, exist_ok=True)
@@ -63,47 +63,81 @@ def get_parser():
     return parser
 
 
-def process_config(config):
+def validate_config(config_dict):
+    schema = {
+            "variance_differences": ("required", list),
+            "trial_types": ("required", list),
+            "contrast": ("required", str),
+            "tr_duration": ("required", float),
+            "noise_dict": ("required", dict),
+            "snr_measure": ("required", str),
+            "snr": ("required", list),
+            "noise_method": ("required", str),
+            "trial_standard_deviation": ("required", list),
+            "n_vols": ("optional", list),
+            "event_files": ("optional:!n_event_files", list),
+            "n_event_files": ("optional:!event_files", int),
+            "optimize_weights": ("optional:!event_files", dict),
+            "trials": ("optional:!event_files", list),
+            "iti_min":  ("optional:!event_files", list),
+            "iti_mean":  ("optional:!event_files", list),
+            "iti_max":  ("optional:!event_files", list),
+            "iti_model":  ("optional:!event_files", list),
+            "stim_duration":  ("optional:!event_files", list),
+            "design_resolution":  ("optional:!event_files", list),
+            "rho":  ("optional:!event_files", list),
+    }
+    skip_keys = []
+    for key, requirements in schema.items():
+        config_value = config_dict.get(key, None)
+        if ":" in requirements[0]:
+            dependency = requirements[0].split(":")[1]
+
+            if dependency.startswith("!"):
+                dependency = dependency.lstrip("!")
+                negate = True
+            else:
+                negate = False
+            dependency_value = config_dict.get(dependency, None)
+            conflict = not (
+                ((bool(config_value) != bool(dependency_value)) == negate)
+                and (bool(config_value) or bool(dependency_value))
+            )
+            if conflict:
+                raise ValueError((f"keys {key} and {dependency} "
+                                  "are in conflict"))
+            if not config_value:
+                skip_keys.append(key)
+            elif not dependency_value:
+                skip_keys.append(dependency)
+        else:
+            if not config_value and requirements[0] == "optional":
+                continue
+            elif not config_value:
+                raise ValueError(f"{key} is missing")
+
+        if key in skip_keys:
+            continue
+
+        if not isinstance(config_value, requirements[1]):
+            raise ValueError((f"{key} must be a {requirements[1]},"
+                              f"{type(config_value)} observed."))
+
+    return config_dict
+
+
+def load_config(config):
+    """check to see if config has all required keys and values"""
     import json
-    import numpy as np
 
     try:
         with open(config, "r") as c:
             config_dict = json.load(c)
     except json.JSONDecodeError:
-        raise("Config File is not formatted Correctly")
+        raise("Config file is not formatted correctly.")
 
-    # trial_types = list(config_dict["correlation_targets"])
-
-    # config_dict['trial_types'] = trial_types
-
-    # config_dict['correlation_targets'] = {
-    #        tt: np.array(ct)
-    #        for tt, ct in config_dict['correlation_targets'].items()
-    #    }
-
-    if config_dict.get("events_file", None):
-        print("events_file(s) detected, ignoring design arguments")
-        design_arguments = ['trials', 'iti_min', 'iti_mean', 'iti_max',
-                            'iti_model', 'stim_duration', 'design_resolution',
-                            'rho']
-
-        # delete unused keys
-        deleted_dict = {k: config_dict.pop(k)
-                        for k in design_arguments
-                        if k in config_dict.keys()}
-        print("Deleted: {}".format(' '.join(deleted_dict.keys())))
-
-    else:
-        # change lists to arrays
-        config_dict['brain_dimensions'] = np.array(
-            config_dict['brain_dimensions']
-        )
-
-        # make contrasts
-        config_dict['contrasts'] = np.eye(len(config_dict['trial_types']))
-
-    return config_dict
+    if validate_config(config_dict):
+        return config_dict
 
 
 if __name__ == '__main__':

@@ -1,23 +1,23 @@
 from ..collect_results import ResultsEntry, CombineEntries
 
 
-def test_ResultsEntry(lss_beta_series, lsa_beta_series, snr_measure,
-                      signal_magnitude, correlation_targets):
+def test_ResultsEntry(beta_series, snr_measure, snr):
     iteration = 1
     iti_mean = 4
     n_trials = 20
 
     res = ResultsEntry(
-        correlation_targets=0.0,
+        variance_difference_ground_truth=0.0,
+        contrast="milkshake - fry",
         trial_standard_deviation=0.5,
-        lss_beta_series_imgs=[str(lss_beta_series)],
-        lsa_beta_series_imgs=[str(lsa_beta_series)],
+        lss_beta_series_imgs=[str(bs) for bs in beta_series],
+        lsa_beta_series_imgs=[str(bs) for bs in beta_series],
         snr_measure=str(snr_measure),
-        signal_magnitude=signal_magnitude,
+        signal_magnitude=snr,
         iteration=iteration,
         iti_mean=iti_mean,
         n_trials=n_trials,
-        trial_noise_ratio={'waffle': 0.5},
+        trial_noise_ratio={'waffle': 0.5, 'fry': 0.2, 'milkshake': 0.8},
     )
 
     res.run()

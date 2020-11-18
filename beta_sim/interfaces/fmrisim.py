@@ -4,6 +4,8 @@ from nipype.interfaces.base import (
     SimpleInterface, traits
     )
 
+from scipy.optimize import minimize
+import time
 import numpy as np
 
 
@@ -13,36 +15,45 @@ class BrainiakBaseInterface(LibraryBaseInterface):
 
 class SimulateDataInputSpec(BaseInterfaceInputSpec):
     iteration = traits.Int(desc='marking each iteration of the simulation')
-    noise_dict = traits.Dict()
-    brain_dimensions = traits.Array(shape=(3,))
-    events_files = traits.List(trait=traits.File())
-    correlation_targets = traits.Float()
+    noise_dict = traits.Dict(desc="dictionary used in fmrisim")
+    brain_dimensions = traits.Array(shape=(3,), desc="three dimensional shape of the brain")
+    event_files = traits.List(trait=traits.File(), desc="potential events files to choose from")
+    variance_difference_ground_truth = traits.Float(
+        desc="the Pearson's correlation between voxels")
     snr_measure = traits.Str(
         desc='choose how to calculate snr: '
              'SFNR, CNR_Amp/Noise-SD, CNR_Amp2/Noise-Var_dB, '
              'CNR_Signal-SD/Noise-SD, CNR_Signal-Var/Noise-Var_dB '
              'PSC')
-    signal_magnitude = traits.List()
+    signal_magnitude = traits.List(desc="ratio of signal to noise")
     total_duration = traits.Int(desc="length of bold run in seconds")
     tr_duration = traits.Float(desc="length of TR in seconds")
-    iti_mean = traits.Float()
-    n_trials = traits.Int()
+    iti_mean = traits.Float(desc="mean inter-trial-interval")
+    n_trials = traits.Int(desc="number of trials per trial type")
     correction = traits.Bool(desc="use the 'real data' method to detect cnr")
     trial_standard_deviation = traits.Float(desc="Standard Deviation of Trial Betas")
     noise_method = traits.Enum('real', 'simple', default='real', usedefault='true')
+    contrast = traits.String(
+        desc="contrast defining which conditions to compare (e.g., 'Waffle - Fry'"
+    )
 
 
 class SimulateDataOutputSpec(TraitedSpec):
     simulated_data = traits.Array()
-    iteration = traits.Int()
-    signal_magnitude = traits.List()
+    #    iteration = traits.Int()
+    #    signal_magnitude = traits.List()
     events_file = File(exists=True)
-    iti_mean = traits.Float()
-    n_trials = traits.Int()
-    correlation_targets = traits.Float()
-    trial_standard_deviation = traits.Float()
+    #    iti_mean = traits.Float()
+    #    n_trials = traits.Int()
+    #    correlation_targets = traits.Dict()
+    #    trial_standard_deviation = traits.Float()
     trial_noise_ratio = traits.Dict()
     noise_correlation = traits.Float()
+    ground_truth_correlation_difference = traits.Float()
+    ground_truth_subtractor_correlation = traits.Float()
+    ground_truth_reference_correlation = traits.Float()
+    trial_type_subtractor = traits.Str()
+    trial_type_reference = traits.Str()
 
 
 class SimulateData(BrainiakBaseInterface, SimpleInterface):
@@ -58,17 +69,21 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
         temp_res = 100
 
         # determine which events file to use based on iteration.
-        events_idx = self.inputs.iteration % len(self.inputs.events_files)
-        events_file = self.inputs.events_files[events_idx]
+        events_idx = self.inputs.iteration % len(self.inputs.event_files)
+        events_file = self.inputs.event_files[events_idx]
         # assume events_file has onset, duration, and trial_type
         events = pd.read_csv(events_file, sep='\t')
 
         beta_weights_dict = _gen_beta_weights(
             events,
-            self.inputs.correlation_targets,
-            self.inputs.brain_dimensions,
+            self.inputs.variance_difference_ground_truth,
             trial_std=self.inputs.trial_standard_deviation,
+            contrast=self.inputs.contrast,
         )
+        trial_type_subtractor, trial_type_reference = self.inputs.contrast.split(' - ')
+        reference_corr = np.corrcoef(beta_weights_dict[trial_type_reference])[0, 1]
+        subtractor_corr = np.corrcoef(beta_weights_dict[trial_type_subtractor])[0, 1]
+        diff_corr = subtractor_corr - reference_corr
 
         trial_types_uniq = events['trial_type'].unique()
         tr_num = int(self.inputs.total_duration // self.inputs.tr_duration)
@@ -108,20 +123,6 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
         mask = template = np.ones(self.inputs.brain_dimensions)
         # to downsample the stimfunction
         skip_idx = int(temp_res * self.inputs.tr_duration)
-        tmp_noise_dict = {
-            'auto_reg_rho': [0.5],
-            'auto_reg_sigma': 1,
-            'drift_sigma': 1,
-            'fwhm': 4,
-            'ma_rho': [0.0],
-            'matched': 0,
-            'max_activity': 1000,
-            'physiological_sigma': 1,
-            'sfnr': 60, 'snr': 40,
-            'task_sigma': 1,
-            'voxel_size': [3.0, 3.0, 3.0],
-            'ignore_spatial': True,
-        }
         if self.inputs.noise_method == "real":
             noise = sim.generate_noise(
                 dimensions=self.inputs.brain_dimensions,
@@ -129,7 +130,7 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
                 tr_duration=self.inputs.tr_duration,
                 template=template,
                 mask=mask,
-                noise_dict=tmp_noise_dict
+                noise_dict=self.inputs.noise_dict
             )
         elif self.inputs.noise_method == "simple":
             n_voxels = np.prod(self.inputs.brain_dimensions)
@@ -146,7 +147,7 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
         tmp_signal_scaled = sim.compute_signal_change(
             signal_function=sim_brain,
             noise_function=noise_standard,
-            noise_dict=tmp_noise_dict,
+            noise_dict=self.inputs.noise_dict,
             magnitude=list(self.inputs.signal_magnitude),
             method=self.inputs.snr_measure
         )
@@ -163,7 +164,7 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
             signal_scaled = sim.compute_signal_change(
                 signal_function=sim_brain,
                 noise_function=noise_standard,
-                noise_dict=tmp_noise_dict,
+                noise_dict=self.inputs.noise_dict,
                 magnitude=list(corrected_signal_mag),
                 method=self.inputs.snr_measure
             )
@@ -184,53 +185,69 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
         }
 
         self._results['trial_noise_ratio'] = trial_noise_ratio
-        self._results['trial_standard_deviation'] = self.inputs.trial_standard_deviation
-        self._results['correlation_targets'] = self.inputs.correlation_targets
+#        self._results['trial_standard_deviation'] = self.inputs.trial_standard_deviation
+#        self._results['correlation_targets'] = self.inputs.correlation_targets
         self._results['noise_correlation'] = noise_corr
         self._results['simulated_data'] = brain
-        self._results['iteration'] = self.inputs.iteration
-        self._results['signal_magnitude'] = signal_mag
+        self._results['ground_truth_correlation_difference'] = diff_corr
+        self._results['ground_truth_subtractor_correlation'] = subtractor_corr
+        self._results['ground_truth_reference_correlation'] = reference_corr
+        self._results['trial_type_subtractor'] = trial_type_subtractor
+        self._results['trial_type_reference'] = trial_type_reference
+#        self._results['iteration'] = self.inputs.iteration
+#        self._results['signal_magnitude'] = signal_mag
         self._results['events_file'] = events_file
-        self._results['iti_mean'] = self.inputs.iti_mean
-        self._results['n_trials'] = self.inputs.n_trials
+#        self._results['iti_mean'] = self.inputs.iti_mean
+#        self._results['n_trials'] = self.inputs.n_trials
 
         return runtime
 
 
-def _gen_beta_weights(events, target_corr, brain_dimensions, trial_std):
-    import numpy as np
-    from scipy.optimize import minimize
-    import time
+def _gen_beta_weights(events, variance_difference, trial_std, contrast):
+    """Generate the beta weights for simulations
 
+    Parameters
+    ----------
+    events : pandas.DataFrame
+        Table containing trial types, onsets, and durations.
+    variance_difference : float
+        Percent variance difference between trial types.
+    trial_std : float
+        Standard deviation of the betas for a trial type.
+    contrast : str
+        Representation of the desired contrast to compare conditions.
+        (e.g., "condition1 - condition2")
+
+    Returns
+    -------
+    beta_dict : dict
+        Trial type dictionary with trial types as keys
+        and their betas as values.
+    """
     trial_types_uniq = events['trial_type'].unique()
-    trial_types_num = trial_types_uniq.shape[0]
-    n_voxels = np.prod(brain_dimensions)
-    cov_mat = np.full((n_voxels, n_voxels), float(trial_std ** 2))
-    # fill lower off diagnal with correlation target
-    cov_mat[np.tril_indices(n_voxels, k=-1)] = target_corr * (trial_std ** 2)
-    # fill upper off diagonal with correlation target
-    cov_mat[np.triu_indices(n_voxels, k=1)] = target_corr * (trial_std ** 2)
-    cov_mats = {tt: cov_mat for tt in trial_types_uniq}
+    trial_type_subtractor, trial_type_reference = contrast.split(' - ')
 
-    if trial_types_num != len(cov_mats.values()):
-        raise ValueError("must be the same number of correlation matrices "
-                         "as the number of trial types")
+    if trial_type_subtractor not in trial_types_uniq:
+        raise ValueError(f"{trial_type_subtractor} not in {trial_types_uniq}")
+    if trial_type_reference not in trial_types_uniq:
+        raise ValueError(f"{trial_type_reference} not in {trial_types_uniq}")
+    n_voxels = 2
+    target_corr = variance_difference ** 0.5
+    trial_variance = float(trial_std ** 2)
 
-    if set(trial_types_uniq) != set(cov_mats.keys()):
-        raise ValueError("correlation matrix trial types do not "
-                         "match the event trial types")
-
-    # make sure there are the same number of trials for each
-    # trial_type
-    # counts = events.groupby('trial_type')['trial_type'].count()
-    # trial_num = counts[0]
-    # if np.all(counts != trial_num):
-    #    raise ValueError("there must be the same number of events "
-    #                     "per trial_type")
-
-    n_voxels = np.prod(brain_dimensions)
     beta_dict = {}
-    for trial_type, cov_mat in cov_mats.items():
+    cov_mat = np.full((n_voxels, n_voxels), trial_variance)
+    for trial_type in trial_types_uniq:
+        if trial_type == trial_type_subtractor:
+            cov_mat[np.tril_indices(n_voxels, k=-1)] = target_corr * trial_variance
+            cov_mat[np.triu_indices(n_voxels, k=1)] = target_corr * trial_variance
+        elif trial_type == trial_type_reference:
+            cov_mat[np.tril_indices(n_voxels, k=-1)] = 0
+            cov_mat[np.triu_indices(n_voxels, k=1)] = 0
+        else:
+            cov_mat[np.tril_indices(n_voxels, k=-1)] = 0
+            cov_mat[np.triu_indices(n_voxels, k=1)] = 0
+
         trial_bool = events['trial_type'] == trial_type
         trial_num = trial_bool.sum()
         # continue while loop while the target correlations
@@ -275,171 +292,14 @@ def _gen_beta_weights(events, target_corr, brain_dimensions, trial_std):
             c_wrong = c_tol < corr_error
             end = time.time() - start
 
-            # check if the correlations are close enough
-            # idxs = np.tril_indices_from(corr, k=-1)
-            # uniq_corr = corr[idxs]
-            # gnd_corr = cov_matrix[idxs]
-            # c_diff = np.abs(gnd_corr - uniq_corr)
-            # c_wrong = np.any(c_diff > corr_tol)
-
-            # check if the means are close enough
-            # uniq_means = sim_betas.mean(axis=0)
-            # m_diff = np.abs(gnd_means - uniq_means)
-            # m_wrong = np.any(m_diff > mean_tol)
-
         if end > overtime:
             raise RuntimeError("Could not make a correlation at the specific parameter")
-        mean_fix = 1 - sim_betas.mean(axis=0)
         # ensure each beta series has average of 1.
+        mean_fix = 1 - sim_betas.mean(axis=0)
         sim_betas_fixed = sim_betas + mean_fix
         beta_dict[trial_type] = sim_betas_fixed
 
     return beta_dict
-
-
-class ContrastNoiseRatioInputSpec(BaseInterfaceInputSpec):
-    events_files = traits.List(trait=traits.File())
-    bold_file = traits.File()
-    confounds_file = traits.Either(None, File(exists=True),
-                                   desc="File that contains all usable confounds")
-    selected_confounds = traits.Either(None, traits.List(),
-                                       desc="Column names of the regressors to include")
-    method = traits.Enum("Kent", "Welvaert", desc="method to Calculate CNR")
-    activation_mask = traits.Either(None, File(exists=True))
-    tr = traits.Float()
-
-
-class ContrastNoiseRatioOutputSpec(TraitedSpec):
-    cnr = traits.Float()
-    noise_dict = traits.Dict()
-    noise_std = traits.Float(desc="standard deviation of the residuals")
-
-
-class ContrastNoiseRatio(SimpleInterface):
-    input_spec = ContrastNoiseRatioInputSpec
-    output_spec = ContrastNoiseRatioOutputSpec
-
-    def _run_interface(self, runtime):
-        import tempfile
-        from nistats.first_level_model import FirstLevelModel
-        from nistats.thresholding import map_threshold
-        from brainiak.utils import fmrisim as sim
-        import pandas as pd
-        import numpy as np
-        import nibabel as nib
-        from nibabel.processing import resample_from_to
-
-        bold_img = nib.load(self.inputs.bold_file)
-        mask, template = sim.mask_brain(volume=bold_img.get_data(),
-                                        mask_self=True)
-
-        dimsize = bold_img.header.get_zooms()
-        noise_dict = {'voxel_size': [dimsize[0], dimsize[1], dimsize[2]],
-                      'matched': 1}
-
-        noise_dict = sim.calc_noise(volume=bold_img.get_data(),
-                                    mask=mask,
-                                    template=template,
-                                    noise_dict=noise_dict)
-
-        cache_dir = tempfile.mkdtemp()
-
-        # get the confounds:
-        if self.inputs.confounds_file and self.inputs.selected_confounds:
-            confounds = _select_confounds(self.inputs.confounds_file,
-                                          self.inputs.selected_confounds)
-        else:
-            confounds = None
-
-        model = FirstLevelModel(t_r=self.inputs.tr,
-                                noise_model='ar1',
-                                standardize=False,
-                                signal_scaling=False,
-                                hrf_model='fir',
-                                drift_model='cosine',
-                                fir_delays=[0, 1, 2, 3, 4, 5, 6, 7, 8],
-                                memory=cache_dir,
-                                minimize_memory=False)
-
-        events_df = pd.read_csv(self.inputs.events_files[0], sep='\t')
-
-        # only care about activation versus not
-        # events_df['trial_type'] = ['event'] * len(events_df.index)
-
-        model.fit(bold_img, events_df, confounds=confounds)
-        regressors = model.design_matrices_[0].columns
-        regressors_of_interest = [
-            r for r in regressors if '_delay_3' in r]
-        num_regressors = len(regressors_of_interest)
-        contrast_of_interest = np.array([1 / num_regressors if c in regressors_of_interest else 0
-                                         for c in regressors])
-        # collect all residuals (do not know what I'm doing here)
-        all_residual_std = [np.std(res.wresid[:, x])
-                            for res in model.results_[0].values()
-                            for x in range(res.wresid.shape[1])]
-
-        # assume noise is average of all the residual standard deviations
-        noise_std = np.mean(all_residual_std)
-
-        activation_zscore = model.compute_contrast(
-            contrast_of_interest,
-            output_type='z_score')
-
-        activation_raw = model.compute_contrast(
-            contrast_of_interest,
-            output_type='effect_size')
-
-        # get the activation value at three scans post onset
-        # (i.e., with a tr of 2, this will be 6 seconds)
-        if self.inputs.activation_mask:
-            tmp_act_img = nib.load(self.inputs.activation_mask)
-            tmp_bold_img = nib.Nifti1Image(
-                bold_img.get_fdata()[..., 0],
-                bold_img.affine)
-            # resample
-            activation_img = resample_from_to(
-                tmp_act_img,
-                tmp_bold_img,
-                order=0,
-                mode='nearest')
-            # boolean numpy array
-            activation_mask = activation_img.get_fdata() > 0
-        else:
-            threshold_map, threshold = map_threshold(
-                activation_zscore,
-                alpha=.005,
-                height_control='fpr')
-
-            activation_mask = threshold_map.get_data()
-            activation_mask[np.nonzero(activation_mask)] = 1
-            activation_mask = activation_mask.astype(bool)
-
-        # get all significant activation values
-        activation_values = activation_raw.get_data()[activation_mask]
-
-        if self.inputs.method == "Kent":
-            # take absolute value and mean
-            # ave_amplitude = np.mean(np.abs(activation_values))
-            # use the a percentile of activation
-            perc = 90
-            amplitude = np.percentile(np.abs(activation_values), perc)
-            cnr = amplitude / noise_std
-        elif self.inputs.method == "Welvaert":
-            perc = 90
-            # calc cnr similar to 10.1371/journal.pone.0077089
-            signal = bold_img.get_fdata()[activation_mask].mean(axis=0)
-            noise = (bold_img.get_fdata()[activation_mask] - signal).std(axis=1)
-
-            cnr = np.median(signal) / np.median(noise)
-            noise_std = np.median(noise)
-        else:
-            raise ValueError("Must select either Kent or Welvaert for CNR")
-
-        self._results['cnr'] = cnr
-        self._results['noise_std'] = noise_std
-        self._results['noise_dict'] = noise_dict
-
-        return runtime
 
 
 def _check_data(x, target_cov_mat, trial_std):
@@ -448,10 +308,6 @@ def _check_data(x, target_cov_mat, trial_std):
     corr_error = _check_corr(corr_mat_obs, target_corr_mat)
 
     return corr_error
-
-
-# def _check_mean(mean_obs, mean_gnd):
-#    return np.sum(np.abs(mean_gnd - mean_obs))
 
 
 def _check_corr(corr_mat_obs, corr_mat_gnd):
