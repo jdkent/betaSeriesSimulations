@@ -1,8 +1,23 @@
+import re
+
 from nipype.interfaces.base import (
     BaseInterfaceInputSpec, TraitedSpec,
     LibraryBaseInterface,
     SimpleInterface, traits
     )
+
+EVENT_FILENAME = re.compile(
+    (
+        '.*itimean-(?P<iti_mean>[0-9.]+)_'
+        '(itimin-(?P<iti_min>[0-9.]+)_)?'
+        '(itimax-(?P<iti_max>[0-9.]+)_)?'
+        '(itimodel-(?P<iti_model>[A-Za-z]+)_)?'
+        'trials-(?P<n_trials>[0-9.]+)_'
+        'duration-(?P<duration>[0-9.]+)_'
+        '(eventidx-(?P<event_idx>[0-9.]+)_)?'
+        'events.tsv'
+    )
+)
 
 
 class NeuroDesignBaseInterface(LibraryBaseInterface):
@@ -18,21 +33,21 @@ class CreateDesignInputSpec(BaseInterfaceInputSpec):
     iti_min = traits.Float(desc="minimum inter-trial-interval")
     iti_mean = traits.Float(desc="mean inter-trial-interval")
     iti_max = traits.Float(desc="maximum inter-trial-interval")
-    iti_model = traits.Str(desc='choices: “fixed”,”uniform”,”exponential”')
+    iti_model = traits.Str(desc='choices: “fixed”, ”uniform”, ”exponential”')
     stim_duration = traits.Float(desc="duration of the stimulus")
     contrasts = traits.Either(traits.List(), traits.Array(),
                               desc="contrasts between trial types")
     design_resolution = traits.Float(desc="second resolution of the design matrix")
     rho = traits.Float(desc="autocorrelation of the data")
-    optimize_weights = traits.List(trait=traits.Float(), minlen=4, maxlen=4,
+    optimize_weights = traits.Dict(value_trait=traits.Float(),
                                    desc=("Weights given to each of the efficiency metrics "
                                          "in this order: Estimation, Detection, "
                                          "Frequencies, Confounders"))
 
 
 class CreateDesignOutputSpec(TraitedSpec):
-    events_files = traits.List(trait=traits.File(),
-                               desc="files with columns 'trial_type', 'onset', and 'duration'")
+    event_files = traits.List(trait=traits.File(),
+                              desc="files with columns 'trial_type', 'onset', and 'duration'")
     total_duration = traits.Int(desc="largest duration of all designs (in seconds)")
     stim_duration = traits.Float(desc="stimulus duration (in seconds)")
     n_trials = traits.Int(desc="number of trials per trial type")
@@ -72,23 +87,40 @@ class CreateDesign(NeuroDesignBaseInterface, SimpleInterface):
             hardprob=False,
         )
 
+        weights_order = ['estimation', 'detection', 'frequency', 'confounds']
+
         # find best design
         designer = optimisation(
             experiment=exp,
-            weights=self.inputs.optimize_weights,
+            weights=[self.inputs.optimize_weights[k] for k in weights_order],
             preruncycles=2,
             cycles=15,
             optimisation='GA'
         )
 
         designer.optimise()
-        # get the max duration of all best designs
-        # as a lazy way to make sure all designs can be simulated.
-        duration = 0
 
         events_file_list = []
         # order the designs from best to worst
         designs_ordered = sorted(designer.designs, key=lambda x: 1 / x.F)
+        # get the max duration of all best designs
+        # as a lazy way to make sure all designs can be simulated.
+        max_duration = max(
+            [design.experiment.duration for design in designs_ordered[:self.inputs.n_event_files]]
+        )
+        # make sure duration is a multiple of the tr
+        mod = max_duration % self.inputs.tr_duration
+        max_duration += mod
+        events_file_template = (
+            "itimean-{imean}_"
+            "itimin-{imin}_"
+            "itimax-{imax}_"
+            "itimodel-{imodel}_"
+            "trials-{trials}_"
+            "duration-{duration}_"
+            "eventidx-{idx:02d}_"
+            "events.tsv"
+        )
         for idx, design in enumerate(designs_ordered[:self.inputs.n_event_files]):
             # Fc: confounding efficiency
             # Fd: detection power
@@ -105,22 +137,24 @@ class CreateDesign(NeuroDesignBaseInterface, SimpleInterface):
             }
             events_df = pd.DataFrame.from_dict(events_dict)
 
-            events_file = os.path.join(os.getcwd(), 'events{}.tsv'.format(idx))
+            events_fname = events_file_template.format(
+                imean=self.inputs.iti_mean,
+                imin=self.inputs.iti_min,
+                imax=self.inputs.iti_max,
+                imodel=self.inputs.iti_model,
+                trials=self.inputs.trials,
+                duration=int(max_duration),
+                idx=idx,
+            )
+            events_file = os.path.join(os.getcwd(), events_fname)
 
             events_df.to_csv(events_file, index=False, sep='\t')
 
             events_file_list.append(events_file)
 
-            # find the max duration of all generated designs
-            if design.experiment.duration > duration:
-                duration = design.experiment.duration
+        self._results['event_files'] = events_file_list
 
-        self._results['events_files'] = events_file_list
-
-        # make sure duration is a multiple of the tr
-        mod = duration % self.inputs.tr_duration
-        duration += mod
-        self._results['total_duration'] = int(duration)
+        self._results['total_duration'] = int(max_duration)
 
         self._results['stim_duration'] = self.inputs.stim_duration
 
@@ -134,7 +168,7 @@ class CreateDesign(NeuroDesignBaseInterface, SimpleInterface):
 class ReadDesignInputSpec(BaseInterfaceInputSpec):
     events_file = traits.File(desc="file with columns 'trial_type', 'onset', and 'duration'")
     tr = traits.Float(desc="repetition time of the scan")
-    nvols = traits.Either(traits.Int(), desc="number of volumes included in the run")
+    n_vols = traits.Either(traits.Int(), None, desc="number of volumes included in the run")
 
 
 class ReadDesign(SimpleInterface):
@@ -146,20 +180,24 @@ class ReadDesign(SimpleInterface):
 
         events_df = pd.read_csv(self.inputs.events_file, sep='\t')
 
-        nvols = self.inputs.nvols
-
-        tr = self.inputs.tr
-
-        total_duration = nvols * tr
-
         # trials per condition (on average)
-        n_trials = len(events_df.index) // events_df['trial_type'].nunique()
+        match = EVENT_FILENAME.match(self.inputs.events_file)
 
-        iti_mean = total_duration / n_trials
+        total_duration = int(match.groupdict().get('duration'))
+        if not total_duration:
+            total_duration = int(self.inputs.n_vols * self.inputs.tr)
+
+        n_trials = int(match.groupdict().get('n_trials'))
+        if not n_trials:
+            n_trials = len(events_df.index) // events_df['trial_type'].nunique()
+
+        iti_mean = float(match.groupdict().get('iti_mean'))
+        if not iti_mean:
+            iti_mean = total_duration / n_trials
 
         stim_duration = events_df['duration'].mean()
 
-        self._results['total_duration'] = int(total_duration)
+        self._results['total_duration'] = total_duration
 
         self._results['stim_duration'] = stim_duration
 
@@ -167,6 +205,6 @@ class ReadDesign(SimpleInterface):
 
         self._results['iti_mean'] = iti_mean
 
-        self._results['event_files'] = [self.inputs.event_file]
+        self._results['event_files'] = [self.inputs.events_file]
 
         return runtime
