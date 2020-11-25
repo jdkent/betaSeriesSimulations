@@ -1,0 +1,14 @@
+#!/bin/bash
+
+#$ -pe smp 20
+#$ -q UI
+#$ -m bea
+#$ -M james-kent@uiowa.edu
+#$ -o /Users/jdkent/Projects/betaSeriesSimulations/
+#$ -e /Users/jdkent/Projects/betaSeriesSimulations/
+
+conda activate betaseries_simulation
+
+sims_beta -w /Users/jdkent/Projects/work --nthreads 24 --n-simulations 100 \
+          /Users/jdkent/Projects/betaSeriesSimulations/ refactor_simulation.tsv \
+          /Users/jdkent/Projects/betaSeriesSimulations/data/example_config.json
