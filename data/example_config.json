@@ -18,7 +18,7 @@
     "tr_duration": 2.0,
     "noise_dict":
         {
-            "auto_reg_rho": [0.7],
+            "auto_reg_rho": [0.55],
             "auto_reg_sigma": 1,
             "drift_sigma": 0,
             "fwhm": 4,
@@ -41,7 +41,7 @@
     "iti_model": ["exponential"],
     "stim_duration": [0.2],
     "design_resolution": [0.1],
-    "rho": [0.7],
+    "rho": [0.55],
     "noise_method": "real",
     "trial_standard_deviation": [0.5, 1, 2]
 }
