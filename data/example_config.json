@@ -28,7 +28,7 @@
             "physiological_sigma": 1,
             "sfnr": 60,
             "snr": 40,
-            "task_sigma": 1,
+            "task_sigma": 0.1,
             "voxel_size": [3.0, 3.0, 3.0],
             "ignore_spatial": true
         },
