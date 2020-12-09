@@ -130,7 +130,8 @@ class SimulateData(BrainiakBaseInterface, SimpleInterface):
                 tr_duration=self.inputs.tr_duration,
                 template=template,
                 mask=mask,
-                noise_dict=self.inputs.noise_dict
+                noise_dict=self.inputs.noise_dict,
+                temporal_proportion=0.05,
             )
         elif self.inputs.noise_method == "simple":
             n_voxels = np.prod(self.inputs.brain_dimensions)
